@@ -1,0 +1,10 @@
+# Run backend
+
+cd webann/backend
+uvicorn app:app --reload --port 8000 
+
+------------------------------------------------------
+# Run frontend
+
+cd webann/frontend
+python -m http.server 5173

@@ -1,0 +1,372 @@
+{
+    "examples": [
+        {
+            "text": "Beginning as early as the 16-somite stage, most neuronal diversity derives from direct neurogenesis (Fig. 4d), including motor neurons, cerebellar Purkinje cells, Cajal-Retzius cells and many other subtypes (CNS neurons sub-panel of Extended Data Fig. 3). Indirect neurogenesis52 has a later start, with intermediate neuronal progenitors first detected at E10.25, later giving rise to deep-layer neurons, upper-layer neurons, subplate neurons, and cortical interneurons (Fig. 4d and Extended Data Fig. 10a,b). Although many subtypes deriving from direct neurogenesis are easily distinguished, the majority (55%) of these 2.1 million cells could initially only be coarsely annotated as glutamatergic or GABAergic (γ-aminobutyric acid-producing) neurons or dorsal or ventral spinal cord progenitors. To leverage the greater heterogeneity evident at early stages as these trajectories ‘launch’ from the patterned neuroectoderm, we re-analysed the pre-E13 subset. This facilitated much more granular annotation, while also highlighting sources of heterogeneity—for example, anterior versus posterior or inhibitory versus excitatory (Fig. 4e, Extended Data Fig. 10c,d and Supplementary Table 12).",
+            "entities": [
+                {
+                    "class": "DevelopmentalTimepoint",
+                    "mentions": [
+                        {
+                            "type": "Embryonic",
+                            "objects": [
+                                {
+                                    "label": "16-somite stage",
+                                    "scale": "Somite",
+                                    "start_value": 16
+                                },
+                                {
+                                    "label": "E10.25",
+                                    "scale": "E",
+                                    "start_value": 10.25
+                                },
+                                {
+                                    "label": "E13",
+                                    "scale": "E",
+                                    "start_value": 13
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "Cell",
+                    "mentions": [
+                        {
+                            "type": "Neuron",
+                            "objects": [
+                                {
+                                    "label": "motor neurons"
+                                },
+                                {
+                                    "label": "cerebellar Purkinje cells"
+                                },
+                                {
+                                    "label": "Cajal-Retzius cells"
+                                },
+                                {
+                                    "label": "deep-layer neurons"
+                                },
+                                {
+                                    "label": "upper-layer neurons"
+                                },
+                                {
+                                    "label": "subplate neurons"
+                                },
+                                {
+                                    "label": "cortical interneurons"
+                                },
+                                {
+                                    "label": "glutamatergic neurons"
+                                },
+                                {
+                                    "label": "GABAergic neurons"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "ProgenitorCell",
+                            "objects": [
+                                {
+                                    "label": "intermediate neuronal progenitors"
+                                },
+                                {
+                                    "label": "dorsal spinal cord progenitors"
+                                },
+                                {
+                                    "label": "ventral spinal cord progenitors"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "BiologicalProcess",
+                    "mentions": [
+                        {
+                            "objects": [
+                                {
+                                    "label": "neurogenesis"
+                                },
+                                {
+                                    "label": "indirect neurogenesis"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "TissueOrOrgan",
+                    "mentions": [
+                        {
+                            "objects": [
+                                {
+                                    "label": "neuroectoderm"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "text": "Despite its relatively small size, the midbrain (or mesencephalon) is associated with essential functions including vision, hearing, motor control, and temperature regulation. The dorsal midbrain contains complex multilayered structures like the cerebral cortex that form the superior and inferior colliculi (Arimura et al., 2019). However, its development has been less well characterized in terms of cellular taxonomy and organization compared with other brain regions. We thus chose the dorsal midbrain to investigate the dynamics of progenitor cell differentiation across multiple embryonic time points. We collected image-based cell segmentation of the developing dorsal midbrain regions at E12.5, E14.5, and E16.5. Reclustering of the gene-by-cell expression matrix revealed multiple cell types including terminally differentiated cells (e.g., GABAergic neurons, glutamatergic neurons, microglia, fibroblasts, and endothelial cells) and progenitors (radial glia cells, neuroblasts, and glioblasts) based on marker gene expression (Figures 5A, S7A, and S7B). Interestingly, we noticed variations in the pattern of progenitor cell appearance and maturation across the different embryonic stages (Figures 5B, 5C, S7C, and S7D).",
+            "entities": [
+                {
+                    "class": "CNSFunction",
+                    "mentions": [
+                        {
+                            "type": "SensoryFunction",
+                            "objects": [
+                                {
+                                    "label": "vision"
+                                },
+                                {
+                                    "label": "hearing"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "MotorFunction",
+                            "objects": [
+                                {
+                                    "label": "motor control"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "RegulatoryFunction",
+                            "objects": [
+                                {
+                                    "label": "temperature regulation"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "BrainRegion",
+                    "mentions": [
+                        {
+                            "objects": [
+                                {
+                                    "label": "midbrain"
+                                },
+                                {
+                                    "label": "dorsal midbrain"
+                                },
+                                {
+                                    "label": "superior colliculi"
+                                },
+                                {
+                                    "label": "inferior colliculi"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "BiologicalProcess",
+                    "mentions": [
+                        {
+                            "objects": [
+                                {
+                                    "label": "progenitor cell differentiation"
+                                },
+                                {
+                                    "label": "progenitor cell maturation"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "PhenotypicFeature",
+                    "mentions": [
+                        {
+                            "objects": [
+                                {
+                                    "label": "progenitor cell appearance"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "DevelopmentalTimepoint",
+                    "mentions": [
+                        {
+                            "type": "Embryonic",
+                            "objects": [
+                                {
+                                    "label": "E12.5"
+                                },
+                                {
+                                    "label": "E14.5"
+                                },
+                                {
+                                    "label": "E16.5"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "Cell",
+                    "mentions": [
+                        {
+                            "type": "Neuron",
+                            "objects": [
+                                {
+                                    "label": "GABAergic neurons"
+                                },
+                                {
+                                    "label": "glutamatergic neurons"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "ImmuneCell",
+                            "objects": [
+                                {
+                                    "label": "microglia"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "MesenchymalCell",
+                            "objects": [
+                                {
+                                    "label": "fibroblasts"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "EndothelialCell",
+                            "objects": [
+                                {
+                                    "label": "endothelial cells"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "ProgenitorCell",
+                            "objects": [
+                                {
+                                    "label": "radial glia cells"
+                                },
+                                {
+                                    "label": "neuroblasts"
+                                },
+                                {
+                                    "label": "glioblasts"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "text": "We next addressed the temporal progression in AP transcriptional states, using the approach described above. This pseudo-time alignment approach appropriately ordered E12-, E13-, E14-, and E15-dividing APs, effectively constituting a pseudo-birthdate axis (Fig. 2D). This allowed us to determine individual gene expression dynamics in APs across corticogenesis, which were reflected by in situ hybridization temporal series (Fig. 2E; fig. S6, A to C; and data S4). Clustering of transcripts based on their expression dynamics showed how transcriptional programs unfold in APs (Fig. 2, E and F, and data S4 and S5). Initially (E12, E13), typically cell-intrinsic (“introverted”) programs were at play: Transcripts coding for nuclear proteins (e.g., Rpa1, involved in DNA replication or the Top2A DNA topoisomerase) and cell cycle regulators (e.g., Ccne1, E2f1, E2f8) were increased, consistent with active cell cycle regulation processes. Similarly, transcripts involved in the regulation of gene expression and chromatin structure were prominent [e.g., Hmga2, which promotes self-renewal of neural progenitors (25), and Trim27, which interacts with the Polycomb complex to repress gene expression (26)]. Finally, cell death modulators (e.g., Siva1, Scrib) were also actively transcribed, suggesting some level of control over progenitor pool size (27).",
+            "entities": [
+                {
+                    "class": "DevelopmentalTimepoint",
+                    "mentions": [
+                        {
+                            "type": "Embryonic",
+                            "objects": [
+                                {
+                                    "label": "E12",
+                                    "scale": "E",
+                                    "start_value": 12
+                                },
+                                {
+                                    "label": "E13",
+                                    "scale": "E",
+                                    "start_value": 13
+                                },
+                                {
+                                    "label": "E14",
+                                    "scale": "E",
+                                    "start_value": 14
+                                },
+                                {
+                                    "label": "E15",
+                                    "scale": "E",
+                                    "start_value": 15
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "Cell",
+                    "mentions": [
+                        {
+                            "type": "ProgenitorCell",
+                            "objects": [
+                                {
+                                    "label": "APs"
+                                },
+                                {
+                                    "label": "dividing APs"
+                                },
+                                {
+                                    "label": "neural progenitors"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "MacromolecularComplex",
+                    "mentions": [
+                        {
+                            "objects": [
+                                {
+                                    "label": "Polycomb"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "class": "Gene",
+                    "mentions": [
+                        {
+                            "objects": [
+                                {
+                                    "label": "Rpa1"
+                                },
+                                {
+                                    "label": "Top2A"
+                                },
+                                {
+                                    "label": "Ccne1"
+                                },
+                                {
+                                    "label": "E2f1"
+                                },
+                                {
+                                    "label": "E2f8"
+                                },
+                                {
+                                    "label": "Hmga2"
+                                },
+                                {
+                                    "label": "Trim27"
+                                },
+                                {
+                                    "label": "Siva1"
+                                },
+                                {
+                                    "label": "Scrib"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

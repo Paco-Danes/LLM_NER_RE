@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NER Annotation Tool</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --panel: #0f1320;
+            --text: #e6e6e6;
+            --muted: #9aa4b2;
+            --accent: #7aa2f7;
+            --border: #1f2536;
+            --chip: #151a28;
+            --danger: #971a1a;
+            --ok: #2ecc71;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+            background: linear-gradient(180deg, #0b0e14 0%, #0a1024 100%);
+            color: var(--text);
+        }
+
+        .app {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            height: 100vh;
+        }
+
+        .sidebar {
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            padding: 16px;
+            overflow: auto;
+        }
+
+        .main {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(12, 16, 28, .6);
+            backdrop-filter: blur(6px);
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+
+        .toolbar .spacer {
+            flex: 1;
+        }
+
+        button,
+        select,
+        input,
+        .btn {
+            appearance: none;
+            border: 1px solid var(--border);
+            background: #12182a;
+            color: var(--text);
+            border-radius: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button:hover {
+            filter: brightness(1.07);
+        }
+
+        button.primary {
+            background: var(--accent);
+            border-color: #5a7dde;
+            color: #0b0e14;
+        }
+
+        button.ghost {
+            background: transparent;
+        }
+
+        button.warn {
+            background: var(--danger);
+            border-color: #aa3030;
+            color: white;
+        }
+
+        .bulk-actions {
+            margin-top: 12px;
+        }
+
+        .textwrap {
+            padding: 18px 24px;
+            overflow: auto;
+        }
+
+        .text {
+            background: rgba(17, 23, 40, 0.55);
+            border: 1px solid var(--border);
+            padding: 18px;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+            user-select: none;
+            /* disable native highlight */
+        }
+
+        .token {
+            padding: 2px 1px;
+            border-radius: 6px;
+            position: relative;
+            transition: background .1s;
+            user-select: none;
+        }
+
+        .token[data-selected="true"] {
+            background: rgba(122, 162, 247, 0.25);
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+
+        .token[data-annotated="true"] {
+            cursor: help;
+        }
+
+        .token[data-annotated="true"]::after {
+            content: attr(data-anno-label);
+            position: absolute;
+            left: 0;
+            bottom: 100%;
+            transform: translateY(-6px);
+            font-size: 11px;
+            background: #0f1320;
+            color: var(--muted);
+            padding: 2px 6px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            opacity: 0;
+            pointer-events: none;
+            white-space: nowrap;
+            transition: opacity .12s ease;
+        }
+
+        .token[data-annotated="true"]:hover::after {
+            opacity: 1;
+        }
+
+        .legend {
+            display: grid;
+            gap: 10px;
+        }
+
+        .legend h2 {
+            margin: 0 0 8px;
+            font-size: 14px;
+            color: var(--muted);
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .class-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .class-card .header {
+            padding: 10px 12px;
+            font-weight: 800;
+        }
+
+        .class-card .items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 12px 12px;
+        }
+
+        .chip {
+            background: var(--chip);
+            border: 1px solid var(--border);
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .empty {
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+
+        .modal {
+            width: min(800px, calc(100% - 32px));
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+        }
+
+        .modal .head {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 800;
+        }
+
+        .modal .body {
+            padding: 16px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .modal .foot {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .field {
+            display: grid;
+            gap: 6px;
+        }
+
+        /* ==== Custom dark theme for Choices.js ==== */
+
+        .choices {
+            --choice-bg: #12182a;
+            --choice-border: #2a3248;
+            --choice-hover: #1f253a;
+            --choice-text: #e6e6e6;
+            --choice-placeholder: #9aa4b2;
+            --choice-accent: #7aa2f7;
+        }
+
+        /* Container */
+        .choices {
+            background: var(--choice-bg);
+            color: var(--choice-text);
+            border: 1px solid var(--choice-border);
+            border-radius: 10px;
+            font-size: 14px;
+            width: 100%;
+        }
+
+        /* When focused (active dropdown) */
+        .choices.is-focused {
+            border-color: var(--choice-accent);
+            box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.25);
+        }
+
+        /* Selected item (the box visible when closed) */
+        .choices__inner {
+            background: var(--choice-bg);
+            color: var(--choice-text);
+            border: none;
+            border-radius: 10px;
+            padding: 8px 10px;
+        }
+
+        /* Dropdown panel */
+        .choices__list--dropdown,
+        .choices__list[aria-expanded] {
+            background: #0f1320;
+            border: 1px solid var(--choice-border);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            color: var(--choice-text);
+            /* no max-height or overflow here */
+            overflow: visible;
+        }
+
+        /* ✅ only the inner list gets a scrollbar */
+        .choices__list--dropdown .choices__list {
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        /* optional: thin scrollbar styling (Firefox) */
+        .choices__list--dropdown .choices__list {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, .2) transparent;
+        }
+
+        /* Individual options */
+        .choices__list--dropdown .choices__item {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .choices__list--dropdown .choices__item:last-child {
+            border-bottom: none;
+        }
+
+        .choices__list--dropdown .choices__item.is-highlighted,
+        .choices__list--dropdown .choices__item:hover {
+            background-color: var(--choice-hover) !important;
+            /* use !important to override inline style */
+            color: var(--choice-text);
+        }
+
+        /* Placeholder text */
+        .choices__placeholder {
+            color: var(--choice-placeholder);
+        }
+
+        /* Hide the “Press to select” hint */
+        .choices__item--selectable::after {
+            display: none;
+        }
+
+        .choices__list--dropdown {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+
+        /* Search input at the top of the dropdown */
+        .choices__input.choices__input--cloned {
+            background-color: #2d395f !important;
+            /* same as modal background */
+            color: #e6e6e6;
+            /* text color */
+            border: 1px solid var(--border);
+            /* subtle border */
+            border-radius: 8px;
+            padding: 6px 10px;
+            margin: 6px;
+        }
+
+        .choices__input.choices__input--cloned::placeholder {
+            color: #7c8798;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .field label {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .kbd {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background: #0a0f1d;
+            border: 1px solid var(--border);
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .footer {
+            padding: 10px 16px;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+        }
+
+        .cols {
+            display: grid;
+            grid-template-columns: minmax(240px, max-content) 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+
+        /* Stack on narrow screens */
+        @media (max-width: 720px) {
+            .cols {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .desc-panel {
+            border-left: 1px solid var(--border);
+            padding-left: 16px;
+            color: var(--muted);
+            min-width: 220px;
+            /* ensures room for the description */
+        }
+
+        .desc-box {
+            max-height: 160px;
+            /* limit vertical growth */
+            overflow-y: auto;
+            /* scroll when content exceeds max height */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+            white-space: pre-wrap;
+            font-size: 13px;
+            line-height: 1.4;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div>
+                <h2 style="margin-top:0">Annotations</h2>
+                <p class="empty" id="legend-empty">No annotations yet.</p>
+                <div class="legend" id="legend"></div>
+                <!-- Bulk actions -->
+                <div class="bulk-actions">
+                    <button id="btn-delete-all" class="warn" disabled>Delete all</button>
+                </div>
+            </div>
+            <hr style="border-color:var(--border); margin: 16px 0; border-style: solid; opacity:.6">
+            <div>
+                <h2>Help</h2>
+                <ul style="margin:0; padding-left: 18px; color: var(--muted)">
+                    <li>Click–drag across tokens to select words.</li>
+                    <li>Press <span class="kbd">Esc</span> to clear selection.</li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="toolbar">
+                <button id="btn-add" disabled>Add Class</button>
+                <button id="btn-clear" class="ghost">Clear Selection</button>
+                <div class="spacer"></div>
+                <button id="btn-prev" class="ghost">Prev</button>
+                <button id="btn-save" class="primary">Save & Next ▶</button>
+            </div>
+
+            <div class="textwrap">
+                <div class="text" id="text"></div>
+            </div>
+
+            <div class="footer" id="status">Ready.</div>
+        </main>
+    </div>
+
+    <!-- Modal for adding/editing class/attributes -->
+    <div class="modal-backdrop" id="modal-bd">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <div class="head" id="modal-title">Add Class</div>
+            <div class="body">
+                <div class="field">
+                    <label>Label (defaults to selected surface form)</label>
+                    <input id="inp-label" type="text" placeholder="Surface form" />
+                </div>
+                <div class="row">
+                    <div class="field" style="flex:1">
+                        <label>Class</label>
+                        <select id="sel-class"></select>
+                    </div>
+                </div>
+
+                <!-- Two-column area: attributes (left) + class description (right) -->
+                <div class="cols">
+                    <div class="col">
+                        <div class="field">
+                            <label>Attributes</label>
+                            <div id="attrs"></div>
+                        </div>
+                    </div>
+
+                    <div class="col desc-panel">
+                        <div class="field">
+                            <label>Class description</label>
+                            <div id="class-desc" class="desc-box"></div>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+            <div class="foot">
+                <button id="btn-delete" class="warn" style="display:none">Delete</button>
+                <div style="display:flex; gap:8px; margin-left:auto">
+                    <button id="btn-cancel" class="ghost">Cancel</button>
+                    <button id="btn-confirm" class="primary">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============== Utility ==============
+        const $ = (sel, root = document) => root.querySelector(sel);
+        const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+        const PALETTE = [
+            '#ff0000', '#ff8800', '#fffa00', '#cbff00', '#72ff00',
+            '#00ffb3', '#00c9ff', '#0088ff', '#0016ff', '#8d00ff',
+            '#b600ff', '#ff00f7', '#ff0075', '#ff004c', '#ffb800',
+            '#00f1ff',
+        ];
+
+        // map of className → color index
+        const CLASS_COLORS = {};
+        let nextColorIdx = 0;
+
+        function classColor(klass) {
+            // reuse same color if already assigned
+            if (!(klass in CLASS_COLORS)) {
+                CLASS_COLORS[klass] = PALETTE[nextColorIdx % PALETTE.length];
+                nextColorIdx++;
+            }
+            const base = CLASS_COLORS[klass];
+            return {
+                bg: base + '66',    // 40% opacity
+                chip: base + '44',  // lighter chip
+                border: base + '99' // darker border
+            };
+        }
+
+        function el(tag, props = {}, children = []) {
+            const node = document.createElement(tag);
+            const { dataset, ...rest } = props;
+            Object.assign(node, rest);
+            if (dataset) Object.entries(dataset).forEach(([k, v]) => node.dataset[k] = v);
+            for (const c of (children || [])) node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+            return node;
+        }
+
+        // Simple tokenizer: keeps whitespace as text nodes, wraps non-whitespace into spans
+        function tokenizeWithOffsets(text) {
+            const tokens = []; // {text, start, end, isSpace}
+            let i = 0;
+            const re = /(\s+|\w+|[^\w\s])/gu; // whitespace | word | punctuation/other
+            let m;
+            while ((m = re.exec(text)) !== null) {
+                const tok = m[0];
+                const isSpace = /\s/u.test(tok);
+                tokens.push({ text: tok, start: i, end: i + tok.length, isSpace });
+                i += tok.length;
+            }
+            return tokens;
+        }
+
+        // ============== Global state ==============
+        const state = {
+            classes: {},
+            texts: { cursor: 0, total: 0 },
+            current: null, // {id, text}
+            tokens: [],
+            selection: { startIdx: null, endIdx: null },
+            annotations: [], // {id, class, label, attrs, span:{start,end}, tokenRange:[i,j]}
+        };
+
+        const ui = { mode: 'create', editId: null, dragging: false };
+
+        function setStatus(msg) { $('#status').textContent = msg; }
+
+        // ============== Backend API helpers ==============
+        // --- add this line near the top of the script ---
+        const API_BASE = 'http://localhost:8000';
+
+        // --- replace the API helper object with this ---
+        const API = {
+            async getClasses() {
+                const r = await fetch(`${API_BASE}/api/classes`);
+                if (!r.ok) throw new Error('Failed to load classes');
+                return r.json();
+            },
+            async getNextText(cursor = null) {
+                const url = new URL(`${API_BASE}/api/texts/next`);
+                if (cursor !== null) url.searchParams.set('cursor', cursor);
+                const r = await fetch(url);
+                if (!r.ok) throw new Error('Failed to load text');
+                return r.json();
+            },
+            async getPrevText(cursor) {
+                const url = new URL(`${API_BASE}/api/texts/prev`);
+                url.searchParams.set('cursor', cursor);
+                const r = await fetch(url);
+                if (!r.ok) throw new Error('Failed to load text');
+                return r.json();
+            },
+            async saveAnnotations(payload) {
+                const r = await fetch(`${API_BASE}/api/annotations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!r.ok) throw new Error(await r.text());
+                return r.json();
+            }
+        };
+
+
+        // ============== Rendering ==============
+        function renderText() {
+            const wrap = $('#text');
+            wrap.innerHTML = '';
+            state.tokens = tokenizeWithOffsets(state.current.text);
+
+            state.tokens.forEach((t, idx) => {
+                if (t.isSpace) {
+                    wrap.appendChild(document.createTextNode(t.text));
+                } else {
+                    const span = el('span', {
+                        className: 'token',
+                        dataset: { idx: String(idx), start: String(t.start), end: String(t.end), selected: 'false' }
+                    }, [t.text]);
+                    wrap.appendChild(span);
+                }
+            });
+
+            // Selection via drag only
+            $('#text').addEventListener('mousedown', onMouseDown);
+            window.addEventListener('mouseup', onMouseUp);
+            $('#text').addEventListener('mousemove', onMouseMove);
+
+            applyAnnotationHighlights();
+        }
+
+        function applyAnnotationHighlights() {
+            $$('.token').forEach(s => { s.style.background = 'transparent'; s.dataset.annotated = 'false'; s.removeAttribute('data-anno-label'); s.dataset.selected = 'false'; });
+            for (const anno of state.annotations) {
+                const { class: klass } = anno;
+                const colors = classColor(klass);
+                const [i0, i1] = anno.tokenRange;
+                for (let i = i0; i <= i1; i++) {
+                    const node = document.querySelector(`.token[data-idx="${i}"]`);
+                    if (!node) continue;
+                    node.style.background = colors.bg;
+                    node.dataset.annotated = 'true';
+                    node.setAttribute('data-anno-label', `${anno.class}`);
+                }
+            }
+        }
+
+        function renderLegend() {
+            const legend = $('#legend');
+            const empty = $('#legend-empty');
+            legend.innerHTML = '';
+
+            if (state.annotations.length === 0) { empty.style.display = 'block'; return; }
+            empty.style.display = 'none';
+
+            // enable/disable Delete all
+            const delAllBtn = $('#btn-delete-all');
+            if (delAllBtn) delAllBtn.disabled = (state.annotations.length === 0);
+
+            if (state.annotations.length === 0) {
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+
+            // group by class
+            const byClass = {};
+            for (const a of state.annotations) {
+                byClass[a.class] ??= [];
+                byClass[a.class].push(a);
+            }
+
+            for (const [klass, annos] of Object.entries(byClass)) {
+                const colors = classColor(klass);
+                const card = el('div', { className: 'class-card' }, [
+                    el('div', { className: 'header', style: `background:${colors.chip}; border-bottom:1px solid ${colors.border}` }, [klass]),
+                    el('div', { className: 'items' }, annos.map(a => el('span', { className: 'chip', style: `background:${colors.chip}; border-color:${colors.border}`, dataset: { annoId: a.id } }, [a.label || `${klass}`])))
+                ]);
+                // chip click → edit
+                card.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => openModal('edit', ch.dataset.annoId)));
+                legend.appendChild(card);
+            }
+        }
+        function renderClassDescription() {
+            const clsName = $('#sel-class').value;
+            const meta = state.classes[clsName];
+            const descEl = $('#class-desc');
+            descEl.textContent = (meta && meta.description) ? meta.description : '(no description)';
+        }
+
+        // ============== Selection via drag ==============
+        function onMouseDown(e) {
+            const node = e.target.closest('.token');
+            if (!node) return;
+            ui.dragging = true;
+            const idx = Number(node.dataset.idx);
+            state.selection.startIdx = idx; state.selection.endIdx = idx;
+            updateSelectionHighlight();
+        }
+
+        function onMouseMove(e) {
+            if (!ui.dragging) return;
+            const node = e.target.closest('.token');
+            if (!node) return;
+            const idx = Number(node.dataset.idx);
+            state.selection.endIdx = idx;
+            if (state.selection.endIdx < state.selection.startIdx) {
+                [state.selection.startIdx, state.selection.endIdx] = [state.selection.endIdx, state.selection.startIdx];
+            }
+            updateSelectionHighlight();
+        }
+
+        function onMouseUp() {
+            if (!ui.dragging) return;
+            ui.dragging = false;
+            const { startIdx, endIdx } = state.selection;
+            const hasSel = startIdx !== null && endIdx !== null;
+            $('#btn-add').disabled = !hasSel;
+        }
+
+        function updateSelectionHighlight() {
+            $$('.token').forEach(s => s.dataset.selected = 'false');
+            const { startIdx, endIdx } = state.selection;
+            if (startIdx === null || endIdx === null) return;
+            for (let i = startIdx; i <= endIdx; i++) {
+                const node = document.querySelector(`.token[data-idx="${i}"]`);
+                if (node) node.dataset.selected = 'true';
+            }
+        }
+
+        function clearSelection() {
+            state.selection.startIdx = state.selection.endIdx = null;
+            updateSelectionHighlight();
+            $('#btn-add').disabled = true;
+        }
+
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') clearSelection(); });
+
+        // ============== Modal (create/edit) ==============
+        function openModal(mode = 'create', annoId = null) {
+            ui.mode = mode; ui.editId = annoId;
+            const bd = $('#modal-bd');
+            bd.style.display = 'flex';
+
+            const title = (mode === 'edit') ? 'Edit Annotation' : 'Add Class';
+            $('#modal-title').textContent = title;
+
+            // Prefill label
+            const labelNode = $('#inp-label');
+            if (mode === 'create') labelNode.value = surfaceFormFromSelection();
+
+            // Class select
+            // Destroy any previous Choices instance (important if modal reused)
+            if (window.classChoices) {
+                window.classChoices.destroy();
+                window.classChoices = null;
+            }
+
+            const sel = $('#sel-class');
+            sel.innerHTML = '';
+            for (const cls of Object.keys(state.classes)) {
+                sel.appendChild(el('option', { value: cls }, [cls]));
+            }
+
+            // Initialize Choices.js
+            window.classChoices = new Choices(sel, {
+                searchEnabled: true,      // enable search
+                searchPlaceholderValue: 'Search classes…',
+                shouldSort: false,        // keep your original order
+                maxItemCount: -1,         // no limit
+                itemSelectText: '',       // remove “Press to select” hint
+                position: 'bottom',       // open downward
+                allowHTML: false
+            });
+
+            // Listen for changes
+            sel.addEventListener('change', () => { renderAttrFields(); renderClassDescription(); });
+
+            // If editing, set current values
+            if (mode === 'edit') {
+                const anno = state.annotations.find(a => a.id === annoId);
+                if (!anno) return;
+                labelNode.value = anno.label || '';
+                sel.value = anno.class;
+                renderAttrFields(anno.attrs);
+                renderClassDescription();
+                $('#btn-delete').style.display = 'inline-flex';
+            } else {
+                renderAttrFields();
+                renderClassDescription();
+                $('#btn-delete').style.display = 'none';
+            }
+        }
+
+        function closeModal() { $('#modal-bd').style.display = 'none'; }
+
+        function renderAttrFields(prefill = {}) {
+            const wrap = $('#attrs');
+            wrap.innerHTML = '';
+            const clsName = $('#sel-class').value;
+            const meta = state.classes[clsName];
+            if (!meta || !meta.attributes || Object.keys(meta.attributes).length === 0) {
+                wrap.appendChild(el('div', { className: 'empty' }, ['No attributes.'])); return;
+            }
+
+            for (const [attr, spec] of Object.entries(meta.attributes)) {
+                const field = el('div', { className: 'row', style: 'align-items:center' }, [
+                    el('label', { style: 'width: 160px; color: var(--muted);' }, [attr]),
+                ]);
+
+                let input;
+                if (spec.enum) {
+                    input = el('select', { id: `attr-${attr}`, style: 'margin-top:5px' }, spec.enum.map(v => el('option', { value: v }, [v])));
+                    if (spec.nullable) input.prepend(el('option', { value: '', textContent: '(none)' }));
+                } else if (spec.type === 'number') {
+                    input = el('input', { id: `attr-${attr}`, type: 'number', step: 'any', placeholder: 'num', style: 'margin-top:5px;width:100px' });
+                } else {
+                    input = el('input', { id: `attr-${attr}`, type: 'text', placeholder: 'text' });
+                }
+
+                // Prefill if provided
+                const val = prefill[attr];
+                if (val !== undefined && val !== null) {
+                    input.value = String(val);
+                } else if (val === null && spec.nullable) {
+                    input.value = '';
+                }
+
+                field.appendChild(input);
+                wrap.appendChild(field);
+            }
+        }
+
+        function surfaceFormFromSelection() {
+            const { startIdx, endIdx } = state.selection;
+            if (startIdx === null || endIdx === null) return '';
+            const parts = [];
+            for (let i = startIdx; i <= endIdx; i++) {
+                const t = state.tokens[i];
+                if (!t || t.isSpace) continue;
+                parts.push(t.text);
+                const after = state.tokens[i + 1];
+                if (after && after.isSpace) parts.push(after.text);
+            }
+            return parts.join('').trim();
+        }
+
+        function confirmSaveAnnotation() {
+            const mode = ui.mode;
+            const label = $('#inp-label').value.trim() || surfaceFormFromSelection();
+            const klass = $('#sel-class').value;
+
+            // collect attrs
+            const attrs = {};
+            const meta = state.classes[klass] || { attributes: {} };
+            for (const [attr, spec] of Object.entries(meta.attributes || {})) {
+                const node = document.querySelector(`#attr-${attr}`);
+                if (!node) continue;
+                const raw = node.value;
+                if (raw === '' && spec.nullable) { attrs[attr] = null; continue; }
+                if (spec.type === 'number') attrs[attr] = raw === '' ? null : Number(raw);
+                else attrs[attr] = raw;
+            }
+
+            if (mode === 'create') {
+                const { startIdx, endIdx } = state.selection;
+                if (startIdx === null || endIdx === null) return;
+                const start = Number(document.querySelector(`.token[data-idx="${startIdx}"]`).dataset.start);
+                const end = Number(document.querySelector(`.token[data-idx="${endIdx}"]`).dataset.end);
+                const anno = {
+                    id: `T${state.annotations.length + 1}`,
+                    class: klass,
+                    label,
+                    attrs,
+                    span: { start, end },
+                    tokenRange: [startIdx, endIdx]
+                };
+                state.annotations.push(anno);
+            } else if (mode === 'edit') {
+                const anno = state.annotations.find(a => a.id === ui.editId);
+                if (!anno) return;
+                anno.class = klass;
+                anno.label = label;
+                anno.attrs = attrs;
+            }
+
+            applyAnnotationHighlights();
+            renderLegend();
+            closeModal();
+            clearSelection();
+        }
+
+        function deleteAnnotation() {
+            if (ui.mode !== 'edit') return;
+            const id = ui.editId;
+            state.annotations = state.annotations.filter(a => a.id !== id);
+            applyAnnotationHighlights();
+            renderLegend();
+            closeModal();
+        }
+
+        // ============== Wire up UI ==============
+        $('#btn-add').onclick = () => openModal('create');
+        $('#btn-cancel').onclick = closeModal;
+        $('#btn-confirm').onclick = confirmSaveAnnotation;
+        $('#btn-delete').onclick = deleteAnnotation;
+        $('#btn-clear').onclick = clearSelection;
+
+        $('#btn-save').onclick = async () => {
+            try {
+                const payload = buildAnnotationPayload();
+                await API.saveAnnotations(payload);
+                setStatus('Saved. Loading next text…');
+                const data = await API.getNextText(state.texts.cursor + 1);
+                loadTextResponse(data);
+            } catch (e) { console.error(e); alert('Save failed: ' + e.message); }
+        };
+
+        $('#btn-prev').onclick = async () => {
+            try {
+                const data = await API.getPrevText(Math.max(0, state.texts.cursor - 1));
+                loadTextResponse(data);
+            } catch (e) { console.error(e); }
+        };
+
+        // Delete all annotations for the current text
+        $('#btn-delete-all').onclick = () => {
+            if (state.annotations.length === 0) return;
+            if (!confirm('Delete all annotations for this text?')) return;
+            state.annotations = [];
+            applyAnnotationHighlights();
+            renderLegend();
+            clearSelection();
+            setStatus('All annotations cleared.');
+        };
+
+        function buildAnnotationPayload() {
+            return {
+                text_id: state.current.id,
+                text: state.current.text,
+                entities: state.annotations.map(a => ({
+                    id: a.id,
+                    class: a.class,
+                    label: a.label,
+                    span: { start: a.span.start, end: a.span.end },
+                    attributes: a.attrs
+                }))
+            };
+        }
+
+        function loadTextResponse(data) {
+            state.current = { id: data.id, text: data.text };
+            state.texts.cursor = data.cursor;
+            state.texts.total = data.total;
+            state.annotations = [];
+            clearSelection();
+            renderText();
+            renderLegend();
+            setStatus(`Doc ${data.cursor + 1} / ${data.total}`);
+        }
+
+        async function boot() {
+            try {
+                state.classes = await API.getClasses();
+                const data = await API.getNextText(null);
+                loadTextResponse(data);
+            } catch (e) { console.error(e); setStatus('Failed to initialize. Is the backend running?'); }
+        }
+
+        boot();
+    </script>
+</body>
+
+</html>
