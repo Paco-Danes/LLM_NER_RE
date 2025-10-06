@@ -442,6 +442,70 @@
             border-radius: 8px;
             padding: 8px 10px;
         }
+
+        /* ADD */
+        #btn-sem-find.loading {
+            position: relative;
+            pointer-events: none;
+            opacity: .7;
+        }
+
+        #btn-sem-find.loading::after {
+            content: '…';
+            margin-left: 6px;
+            animation: blink 1s steps(1) infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* Optional: make suggestion chips a bit tighter in this block */
+        #sem-suggest .chip {
+            padding: 3px 8px;
+        }
+
+        #sem-suggest small {
+            opacity: .7;
+            margin-left: 4px;
+            font-size: 11px;
+        }
+
+        /* Top block now splits the modal: left (inputs) | right (find + chips) */
+        .cols-top {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            /* halves the modal */
+            gap: 16px;
+            align-items: start;
+        }
+
+        /* Chips and button niceties on the right rail */
+        .right-rail .items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        /* Make the two halves stack on small screens */
+        @media (max-width: 720px) {
+            .cols-top {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Keep from ballooning vertically */
+        #sem-suggest {
+            max-height: 140px;
+            overflow: auto;
+            scrollbar-width: thin;
+        }
     </style>
 </head>
 
@@ -491,18 +555,37 @@
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <div class="head" id="modal-title">Add Class</div>
             <div class="body">
-                <div class="field">
-                    <label>Label (defaults to selected surface form)</label>
-                    <input id="inp-label" type="text" placeholder="Surface form" />
-                </div>
-                <div class="row">
-                    <div class="field" style="flex:1">
-                        <label>Class</label>
-                        <select id="sel-class"></select>
+                <!-- TOP: two columns — left form fields, right rail -->
+                <div class="cols-top">
+                    <!-- LEFT: label + class (each now half the modal because of the grid) -->
+                    <div class="col">
+                        <div class="field">
+                            <label>Label (defaults to selected surface form)</label>
+                            <input id="inp-label" type="text" placeholder="Surface form" />
+                        </div>
+
+                        <div class="field">
+                            <label>Class</label>
+                            <select id="sel-class"></select>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: find button + suggestions (stacked) -->
+                    <div class="col right-rail">
+                        <div class="field" style="align-items:flex-end">
+                            <label>Genius Search</label>
+                            <button id="btn-sem-find" class="ghost" title="Send search text + label to semantic engine"
+                                style="width: min-content;padding-left: 30px;padding-right: 30px;">✨Find✨</button>
+                        </div>
+
+                        <div class="field" id="sem-suggest-section" style="display:none">
+                            <label>Semantic suggestions</label>
+                            <div id="sem-suggest" class="items"></div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Two-column area: attributes (left) + class description (right) -->
+                <!-- BELOW: keep your existing two-column Attributes | Class description block -->
                 <div class="cols">
                     <div class="col">
                         <div class="field">
@@ -518,8 +601,6 @@
                         </div>
                     </div>
                 </div>
-
-
             </div>
             <div class="foot">
                 <button id="btn-delete" class="warn" style="display:none">Delete</button>
@@ -684,7 +765,23 @@
                 });
                 if (!r.ok) throw new Error(await r.text());
                 return r.json();
-            }
+            },
+            // ADD to API
+            async semanticStatus() {
+                const r = await fetch(`${API_BASE}/api/semantic/status`);
+                if (!r.ok) return { ready: false, size: 0, model: "", has_embedder: false };
+                return r.json();
+            },
+            async semanticSuggest(payload) {
+                const r = await fetch(`${API_BASE}/api/semantic/suggest`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!r.ok) throw new Error(await r.text());
+                return r.json();
+            },
+
         };
 
         // ============== Rendering ==============
@@ -772,6 +869,53 @@
             descEl.textContent = (meta && meta.description) ? meta.description : '(no description)';
         }
 
+        // --- ADD: pull the current Choices search text (if dropdown is open)
+        function getChoicesSearchTerm() {
+            // Ensure dropdown exists so the input is in DOM
+            if (window.classChoices) window.classChoices.showDropdown();
+            const inp = $('#modal-bd .choices__input--cloned');
+            return (inp && inp.value.trim()) || '';
+        }
+
+        // --- ADD: render semantic suggestions
+        function renderSemanticSuggestions(items) {
+            const section = $('#sem-suggest-section');
+            const box = $('#sem-suggest');
+            box.innerHTML = '';
+
+            if (!items || items.length === 0) {
+                section.style.display = 'block';
+                box.appendChild(el('span', { className: 'empty' }, ['No semantic suggestions.']));
+                return;
+            }
+
+            for (const it of items) {
+                const colors = classColor(it.class_name);
+                const chip = el('span', {
+                    className: 'chip',
+                    style: `background:${colors.chip}; border-color:${colors.border}`,
+                    title: it.description || ''
+                }, [
+                    it.class_name,
+                    ' ',
+                    el('small', {}, [`${Math.round(it.score * 100)}%`])
+                ]);
+
+                chip.addEventListener('click', () => {
+                    // Apply selection to Choices/select
+                    const sel = $('#sel-class');
+                    if (window.classChoices) {
+                        window.classChoices.setChoiceByValue(it.class_name); // selects the option
+                    }
+                    sel.value = it.class_name;
+                    sel.dispatchEvent(new Event('change'));
+                });
+
+                box.appendChild(chip);
+            }
+            section.style.display = 'block';
+        }
+
         // ============== Selection via drag ==============
         function onMouseDown(e) {
             const node = e.target.closest('.token');
@@ -855,6 +999,16 @@
                 itemSelectText: '',       // remove “Press to select” hint
                 position: 'bottom',       // open downward
                 allowHTML: false
+            });
+
+            // inside openModal(...), after initializing Choices:
+            clearSemanticSuggestions();
+
+            // Check backend readiness once per modal open (cheap call / fast path)
+            API.semanticStatus().then(s => {
+                const b = $('#btn-sem-find');
+                b.disabled = !(s.ready && s.has_embedder && s.size > 0);
+                b.title = b.disabled ? 'Semantic index not ready' : 'Send search + label to semantic engine';
             });
 
             // Listen for changes
@@ -1049,8 +1203,39 @@
         $('#btn-confirm').onclick = confirmSaveAnnotation;
         $('#btn-delete').onclick = deleteAnnotation;
         $('#btn-clear').onclick = clearSelection;
-        // REPLACE
-        // REPLACE
+        // ADD: Find button
+        $('#btn-sem-find').onclick = async () => {
+            const btn = $('#btn-sem-find');
+            try {
+                btn.classList.add('loading');
+                const query = getChoicesSearchTerm();  // from Choices search
+                const label = $('#inp-label').value.trim(); // the surface form box
+                const res = await API.semanticSuggest({ query, label, top_k: 8, threshold: 0.2 });
+                renderSemanticSuggestions(res.items);
+            } catch (e) {
+                console.error(e);
+                alert('Semantic search failed: ' + e.message);
+            } finally {
+                btn.classList.remove('loading');
+            }
+        };
+
+        // ADD: Press Enter in the Choices search input triggers Find
+        document.addEventListener('keydown', (ev) => {
+            const active = document.activeElement;
+            if (ev.key === 'Enter' && active && active.classList.contains('choices__input--cloned')) {
+                ev.preventDefault();
+                const btn = $('#btn-sem-find');
+                if (!btn.disabled) btn.click();
+            }
+        });
+
+        // ADD: on openModal, clear previous suggestions
+        function clearSemanticSuggestions() {
+            $('#sem-suggest').innerHTML = '';
+            $('#sem-suggest-section').style.display = 'none';
+        }
+
         $('#btn-save').onclick = async () => {
             try {
                 const shouldSkip = state.saved.exists && !ui.dirty;

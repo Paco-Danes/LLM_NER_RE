@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
+from functools import lru_cache
+import numpy as np
 from pathlib import Path
 import json
 import tempfile
@@ -69,6 +71,101 @@ def write_annotations_jsonl(path: Path, items: List[Dict[str, Any]]):
             tmp.write(json.dumps(obj, ensure_ascii=False) + "\n")
         tmp_path = tmp.name
     os.replace(tmp_path, path)
+
+# ---- ADD: constants ----
+EMBED_INDEX_FILE = DATA_DIR / "class_index.npz"
+EMBED_META_FILE = DATA_DIR / "class_index_meta.json"
+EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
+
+# ---- ADD: lazy loaders ----
+@lru_cache(maxsize=1)
+def _load_index():
+    if not EMBED_INDEX_FILE.exists():
+        return None
+    data = np.load(EMBED_INDEX_FILE, allow_pickle=True)
+    labels = list(map(str, data["labels"].tolist()))
+    embs = data["embeddings"].astype("float32")
+    # ensure normalized
+    norms = np.linalg.norm(embs, axis=1, keepdims=True) + 1e-12
+    embs = embs / norms
+    meta = {}
+    if EMBED_META_FILE.exists():
+        try:
+            meta = json.loads(EMBED_META_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            meta = {}
+    return {"labels": labels, "embeddings": embs, "meta": meta}
+
+@lru_cache(maxsize=1)
+def _load_embedder():
+    try:
+        from sentence_transformers import SentenceTransformer
+        return SentenceTransformer(EMBED_MODEL_NAME, device="cpu")
+    except Exception as e:
+        return None
+
+def _encode_query(texts: List[str]):
+    model = _load_embedder()
+    if model is None:
+        raise HTTPException(501, "Embedding model not installed on server.")
+    # BGE prefers 'query:' prefix
+    texts = [("query: " + t.strip()) if t else "query:" for t in texts]
+    vecs = model.encode(texts, normalize_embeddings=True)
+    return vecs.astype("float32")
+
+# ---- ADD: pydantic models ----
+class SuggestIn(BaseModel):
+    query: Optional[str] = ""
+    label: Optional[str] = ""  # the surface form from your modal label input
+    top_k: int = 8
+    threshold: float = 0.2     # cosine similarity threshold
+
+class SuggestItem(BaseModel):
+    class_name: str
+    score: float
+    description: Optional[str] = None
+
+class SuggestOut(BaseModel):
+    ready: bool
+    total: int
+    items: List[SuggestItem]
+
+# ---- ADD: endpoints ----
+@app.get("/api/semantic/status")
+async def semantic_status():
+    idx = _load_index()
+    ok = idx is not None
+    return {
+        "ready": bool(ok),
+        "size": (len(idx["labels"]) if ok else 0),
+        "model": EMBED_MODEL_NAME,
+        "has_embedder": _load_embedder() is not None
+    }
+
+@app.post("/api/semantic/suggest", response_model=SuggestOut)
+async def semantic_suggest(payload: SuggestIn):
+    idx = _load_index()
+    if idx is None:
+        raise HTTPException(503, "Semantic index missing. Run the embedding builder first.")
+    query = " ".join([payload.query or "", payload.label or ""]).strip()
+    if not query:
+        return {"ready": True, "total": len(idx["labels"]), "items": []}
+
+    qvec = _encode_query([query])[0]  # (d,)
+    embs = idx["embeddings"]         # (N,d), already normalized
+    sims = (embs @ qvec)             # (N,)
+
+    order = np.argsort(-sims)[: max(1, payload.top_k)]
+    items = []
+    for i in order:
+        s = float(sims[i])
+        if s < payload.threshold:
+            continue
+        name = idx["labels"][i]
+        desc = (idx["meta"].get(name) or {}).get("description")
+        items.append({"class_name": name, "score": s, "description": desc})
+
+    return {"ready": True, "total": len(idx["labels"]), "items": items}
 
 # ---------- Routes ----------
 @app.get("/api/classes")
