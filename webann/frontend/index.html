@@ -106,6 +106,22 @@
             color: white;
         }
 
+        button.ok {
+            background: var(--ok);
+            border-color: #1e9e5a;
+            color: #0b0e14;
+        }
+
+        /* Disabled button style */
+        button:disabled,
+        button[disabled] {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: none;
+            /* prevent hover filter */
+            transform: none;
+        }
+
         .bulk-actions {
             margin-top: 12px;
         }
@@ -459,9 +475,11 @@
                 <button id="btn-prev" class="ghost">Prev</button>
                 <button id="btn-save" class="primary">Save & Next ▶</button>
             </div>
-
             <div class="textwrap">
                 <div class="text" id="text"></div>
+                <p id="empty-annot-note" class="empty" style="display:none; margin:8px 2px 0;">
+                    <em>Text already annotated as EMPTY</em>
+                </p>
             </div>
 
             <div class="footer" id="status">Ready.</div>
@@ -512,6 +530,42 @@
             </div>
         </div>
     </div>
+    <!-- Overwrite confirmation modal -->
+    <div class="modal-backdrop" id="overwrite-bd">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="overwrite-title">
+            <div class="head" id="overwrite-title">Overwrite existing annotations?</div>
+            <div class="body">
+                <p>
+                    The selected text was already annotated.<br>
+                    Do you want to overwrite? <br>
+                    <small style="color:var(--muted)">This <b>removes all previous entities and relationships</b> and
+                        assigns yours.</small>
+                </p>
+            </div>
+            <div class="foot">
+                <button id="btn-overwrite-cancel" class="warn">Cancel</button>
+                <button id="btn-overwrite-confirm" class="ok">Overwrite</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD: Delete All confirmation modal -->
+    <div class="modal-backdrop" id="delall-bd">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="delall-title">
+            <div class="head" id="delall-title">Delete all annotations?</div>
+            <div class="body">
+                <p>
+                    This will remove <b>all annotations</b> for the current text in the UI.<br>
+                    (You’ll still need to click <i>Save & Next</i> to persist the empty set.)
+                </p>
+            </div>
+            <div class="foot">
+                <button id="btn-delall-cancel" class="ghost">Cancel</button>
+                <button id="btn-delall-confirm" class="warn">Delete All</button>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         // ============== Utility ==============
@@ -574,6 +628,7 @@
             tokens: [],
             selection: { startIdx: null, endIdx: null },
             annotations: [], // {id, class, label, attrs, span:{start,end}, tokenRange:[i,j]}
+            saved: { exists: false, wasEmpty: false }
         };
 
         const ui = { mode: 'create', editId: null, dragging: false };
@@ -584,7 +639,6 @@
         // --- add this line near the top of the script ---
         const API_BASE = 'http://localhost:8000';
 
-        // --- replace the API helper object with this ---
         const API = {
             async getClasses() {
                 const r = await fetch(`${API_BASE}/api/classes`);
@@ -605,8 +659,25 @@
                 if (!r.ok) throw new Error('Failed to load text');
                 return r.json();
             },
-            async saveAnnotations(payload) {
-                const r = await fetch(`${API_BASE}/api/annotations`, {
+            // ADD
+            async annotationsExist(text_id) {
+                const r = await fetch(`${API_BASE}/api/annotations/${encodeURIComponent(text_id)}/exists`);
+                if (!r.ok) throw new Error('Failed to check existing annotations');
+                const data = await r.json();
+                return !!data.exists;
+            },
+            // ADD
+            async getAnnotation(text_id) {
+                const r = await fetch(`${API_BASE}/api/annotations/${encodeURIComponent(text_id)}`);
+                if (r.status === 404) return null;
+                if (!r.ok) throw new Error('Failed to fetch saved annotation');
+                return r.json();
+            },
+            // CHANGE: support overwrite flag
+            async saveAnnotations(payload, overwrite = false) {
+                const url = new URL(`${API_BASE}/api/annotations`);
+                if (overwrite) url.searchParams.set('overwrite', 'true');
+                const r = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -615,7 +686,6 @@
                 return r.json();
             }
         };
-
 
         // ============== Rendering ==============
         function renderText() {
@@ -808,6 +878,35 @@
 
         function closeModal() { $('#modal-bd').style.display = 'none'; }
 
+        // ADD: overwrite modal opener (re-use if you already added earlier)
+        function openOverwriteModal(onConfirm, onCancel) {
+            const bd = $('#overwrite-bd');
+            bd.style.display = 'flex';
+            const ok = $('#btn-overwrite-confirm');
+            const cancel = $('#btn-overwrite-cancel');
+            const cleanup = () => { ok.onclick = cancel.onclick = null; bd.style.display = 'none'; };
+            ok.onclick = () => { cleanup(); onConfirm && onConfirm(); };
+            cancel.onclick = () => { cleanup(); onCancel && onCancel(); };
+        }
+
+        // ADD: Delete All modal opener
+        function openDeleteAllModal(onConfirm, onCancel) {
+            const bd = $('#delall-bd');
+            bd.style.display = 'flex';
+
+            const ok = $('#btn-delall-confirm');
+            const cancel = $('#btn-delall-cancel');
+
+            const cleanup = () => {
+                ok.onclick = cancel.onclick = null;
+                bd.style.display = 'none';
+            };
+            // on ok click -> delete all button turn disabled
+            ok.onclick = () => { cleanup(); onConfirm && onConfirm(); $('#btn-delete-all').disabled = true; };
+            cancel.onclick = () => { cleanup(); onCancel && onCancel(); };
+        }
+
+
         function renderAttrFields(prefill = {}) {
             const wrap = $('#attrs');
             wrap.innerHTML = '';
@@ -898,6 +997,8 @@
                 anno.attrs = attrs;
             }
 
+            ui.dirty = true;
+            updatePrimaryButton();
             applyAnnotationHighlights();
             renderLegend();
             closeModal();
@@ -908,9 +1009,38 @@
             if (ui.mode !== 'edit') return;
             const id = ui.editId;
             state.annotations = state.annotations.filter(a => a.id !== id);
+            // if no current annotations left, disable Delete all button
+            if (state.annotations.length === 0) { $('#btn-delete-all').disabled = true; }
+            ui.dirty = true;
+            updatePrimaryButton();
             applyAnnotationHighlights();
             renderLegend();
             closeModal();
+        }
+
+        // ADD
+
+        function updatePrimaryButton() {
+            const btn = $('#btn-save');
+            const shouldSkip = state.saved.exists && !ui.dirty; // already annotated & untouched
+            btn.textContent = shouldSkip ? 'Skip ▶' : 'Save & Next ▶';
+            // Always enabled: we either skip or save
+            btn.disabled = false;
+        }
+
+        // ADD: map a char-span to token indices (inclusive range)
+        function spanToTokenRange(span) {
+            const { start, end } = span; // end is exclusive
+            let i0 = null, i1 = null;
+            for (let i = 0; i < state.tokens.length; i++) {
+                const t = state.tokens[i];
+                if (t.isSpace) continue;
+                if (i0 === null && t.end > start) i0 = i;           // first token that crosses/starts after start
+                if (t.start < end) i1 = i;                          // last token whose start is before end
+                if (t.start >= end) break;
+            }
+            if (i0 === null || i1 === null) return null;
+            return [i0, i1];
         }
 
         // ============== Wire up UI ==============
@@ -919,15 +1049,47 @@
         $('#btn-confirm').onclick = confirmSaveAnnotation;
         $('#btn-delete').onclick = deleteAnnotation;
         $('#btn-clear').onclick = clearSelection;
-
+        // REPLACE
+        // REPLACE
         $('#btn-save').onclick = async () => {
             try {
+                const shouldSkip = state.saved.exists && !ui.dirty;
+
+                if (shouldSkip) {
+                    // Just advance without saving
+                    setStatus('Skipping…');
+                    const data = await API.getNextText(state.texts.cursor + 1);
+                    loadTextResponse(data);
+                    return;
+                }
+
+                // Otherwise: Save (may overwrite)
                 const payload = buildAnnotationPayload();
-                await API.saveAnnotations(payload);
-                setStatus('Saved. Loading next text…');
-                const data = await API.getNextText(state.texts.cursor + 1);
-                loadTextResponse(data);
-            } catch (e) { console.error(e); alert('Save failed: ' + e.message); }
+
+                const proceedSave = async (overwrite) => {
+                    await API.saveAnnotations(payload, overwrite);
+                    ui.dirty = false; // saved
+                    updatePrimaryButton();
+                    setStatus('Saved. Loading next text…');
+                    const data = await API.getNextText(state.texts.cursor + 1);
+                    loadTextResponse(data);
+                };
+
+                // Fetch existing to decide overwrite confirmation
+                const existing = await API.getAnnotation(payload.text_id); // null if none
+
+                if (existing && Array.isArray(existing.entities) && existing.entities.length > 0) {
+                    openOverwriteModal(
+                        () => proceedSave(true),
+                        () => setStatus('Save canceled.')
+                    );
+                } else {
+                    await proceedSave(!!existing); // overwrite=true only if an empty record exists
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Save failed: ' + e.message);
+            }
         };
 
         $('#btn-prev').onclick = async () => {
@@ -940,12 +1102,18 @@
         // Delete all annotations for the current text
         $('#btn-delete-all').onclick = () => {
             if (state.annotations.length === 0) return;
-            if (!confirm('Delete all annotations for this text?')) return;
-            state.annotations = [];
-            applyAnnotationHighlights();
-            renderLegend();
-            clearSelection();
-            setStatus('All annotations cleared.');
+            openDeleteAllModal(
+                () => {
+                    state.annotations = [];
+                    ui.dirty = true;          // user changed the current doc
+                    updatePrimaryButton(); // update Save/Skip button
+                    applyAnnotationHighlights();
+                    renderLegend();
+                    clearSelection();
+                    setStatus('All annotations cleared.');
+                },
+                () => setStatus('Delete all canceled.')
+            );
         };
 
         function buildAnnotationPayload() {
@@ -961,17 +1129,69 @@
                 }))
             };
         }
-
-        function loadTextResponse(data) {
+        // REPLACE
+        async function loadTextResponse(data) {
             state.current = { id: data.id, text: data.text };
             state.texts.cursor = data.cursor;
             state.texts.total = data.total;
+
+            // Reset local annotations & selection
             state.annotations = [];
             clearSelection();
+
+            // Reset saved flags & hide note by default
+            state.saved.exists = false;
+            state.saved.wasEmpty = false;
+            $('#empty-annot-note').style.display = 'none';
+
+            // Render tokens first
             renderText();
-            renderLegend();
-            setStatus(`Doc ${data.cursor + 1} / ${data.total}`);
+
+            try {
+                const saved = await API.getAnnotation(state.current.id); // null if none
+                if (saved && Array.isArray(saved.entities)) {
+                    state.saved.exists = true;
+                    state.saved.wasEmpty = saved.entities.length === 0;
+
+                    if (state.saved.wasEmpty) {
+                        // Informative note under the textbox
+                        $('#empty-annot-note').style.display = 'block';
+                    }
+
+                    // Map saved entities to UI annotations
+                    const annos = [];
+                    for (const ent of saved.entities) {
+                        const tr = spanToTokenRange(ent.span);
+                        if (!tr) continue;
+                        annos.push({
+                            id: ent.id,
+                            class: ent.class,
+                            label: ent.label,
+                            attrs: ent.attributes || {},
+                            span: { start: ent.span.start, end: ent.span.end },
+                            tokenRange: tr
+                        });
+                    }
+                    state.annotations = annos;
+                    applyAnnotationHighlights();
+                    renderLegend();
+                    setStatus(`Doc ${data.cursor + 1} / ${data.total} (loaded saved annotations)`);
+                } else {
+                    // No saved annotation
+                    renderLegend();
+                    setStatus(`Doc ${data.cursor + 1} / ${data.total}`);
+                }
+            } catch (e) {
+                // 404 → no saved annotations
+                renderLegend();
+                setStatus(`Doc ${data.cursor + 1} / ${data.total}`);
+            }
+
+            // Fresh load: untouched
+            ui.dirty = false;
+            updatePrimaryButton();
         }
+
 
         async function boot() {
             try {
