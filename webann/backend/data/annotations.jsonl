@@ -1,0 +1,3 @@
+{"text_id": "doc-0001", "entities": [], "relations": []}
+{"text_id": "doc-0002", "entities": [{"id": "T1", "class": "BrainRegion", "label": "midbrain", "span": {"start": 39, "end": 47}, "attributes": {}}, {"id": "T2", "class": "CNSFunction", "label": "hearing", "span": {"start": 124, "end": 131}, "attributes": {"type": "SensoryFunction"}}, {"id": "T3", "class": "CNSFunction", "label": "motor control", "span": {"start": 133, "end": 146}, "attributes": {"type": "MotorFunction"}}], "relations": [{"id": "R1", "predicate": "AnatomicalStructureToFunction", "subject": "T1", "object": "T2", "attributes": {}}, {"id": "R2", "predicate": "AnatomicalStructureToFunction", "subject": "T1", "object": "T3", "attributes": {}}]}
+{"text_id": "doc-0003", "entities": [], "relations": []}

@@ -1,0 +1,22 @@
+{
+  "AnatomicalStructureToFunction": {
+    "description": "A relation between an anatomical structure and a function it performs or is associated with.",
+    "subject": [
+      "BrainRegion",
+      "TissueOrOrgan"
+    ],
+    "object": [
+      "CNSFunction"
+    ]
+  },
+  "AnatomicalStructureToDisease": {
+    "description": "A relation between an anatomical structure and a disease that affects it.",
+    "subject": [
+      "BrainRegion",
+      "TissueOrOrgan"
+    ],
+    "object": [
+      "Disease"
+    ]
+  }
+}

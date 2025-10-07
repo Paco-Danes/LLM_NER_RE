@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Literal
 from functools import lru_cache
 import numpy as np
 from pathlib import Path
@@ -14,6 +14,15 @@ DATA_DIR = Path(__file__).parent / "data"
 CLASSES_FILE = DATA_DIR / "classes.json"
 TEXTS_FILE = DATA_DIR / "texts.json"
 ANNOT_FILE = DATA_DIR / "annotations.jsonl"
+# ---------- Files ----------
+RELATIONS_FILE = DATA_DIR / "relations.json"
+# ---- ADD: relation embedding index files (symmetric to class index) ----
+REL_EMBED_INDEX_FILE = DATA_DIR / "rel_index.npz"
+REL_EMBED_META_FILE  = DATA_DIR / "rel_index_meta.json"
+# ---- ADD: class embedding model name and index ----
+EMBED_INDEX_FILE = DATA_DIR / "class_index.npz"
+EMBED_META_FILE = DATA_DIR / "class_index_meta.json"
+EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 
 app = FastAPI(title="Annotation Backend")
 app.add_middleware(
@@ -35,10 +44,18 @@ class Entity(BaseModel):
     span: Span
     attributes: Dict[str, Any] = {}
 
+class RelationEdge(BaseModel):
+    id: str
+    predicate: str             # relation name
+    subject: str               # entity id (e.g., "T3")
+    object: str                # entity id
+    attributes: Dict[str, Any] = {}
+
 class SavePayload(BaseModel):
     text_id: str
     text: str
     entities: List[Entity]
+    relations: List[RelationEdge] = []   # <--- ADD
 
 # ---------- Helpers ----------
 def load_json(path: Path):
@@ -72,14 +89,9 @@ def write_annotations_jsonl(path: Path, items: List[Dict[str, Any]]):
         tmp_path = tmp.name
     os.replace(tmp_path, path)
 
-# ---- ADD: constants ----
-EMBED_INDEX_FILE = DATA_DIR / "class_index.npz"
-EMBED_META_FILE = DATA_DIR / "class_index_meta.json"
-EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
-
 # ---- ADD: lazy loaders ----
 @lru_cache(maxsize=1)
-def _load_index():
+def _load_index(): #for classes
     if not EMBED_INDEX_FILE.exists():
         return None
     data = np.load(EMBED_INDEX_FILE, allow_pickle=True)
@@ -92,6 +104,22 @@ def _load_index():
     if EMBED_META_FILE.exists():
         try:
             meta = json.loads(EMBED_META_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            meta = {}
+    return {"labels": labels, "embeddings": embs, "meta": meta}
+
+@lru_cache(maxsize=1)
+def _load_rel_index():
+    if not REL_EMBED_INDEX_FILE.exists():
+        return None
+    data  = np.load(REL_EMBED_INDEX_FILE, allow_pickle=True)
+    labels = list(map(str, data["labels"].tolist()))
+    embs   = data["embeddings"].astype("float32")
+    embs  /= (np.linalg.norm(embs, axis=1, keepdims=True) + 1e-12)
+    meta = {}
+    if REL_EMBED_META_FILE.exists():
+        try:
+            meta = json.loads(REL_EMBED_META_FILE.read_text(encoding="utf-8"))
         except Exception:
             meta = {}
     return {"labels": labels, "embeddings": embs, "meta": meta}
@@ -115,10 +143,13 @@ def _encode_query(texts: List[str]):
 
 # ---- ADD: pydantic models ----
 class SuggestIn(BaseModel):
+    kind: Literal["class", "relation"] = "class"   # <--- ADD
     query: Optional[str] = ""
-    label: Optional[str] = ""  # the surface form from your modal label input
+    label: Optional[str] = ""
+    subject_class: Optional[str] = None            # <--- ADD
+    object_class: Optional[str] = None            # <--- ADD
     top_k: int = 8
-    threshold: float = 0.2     # cosine similarity threshold
+    threshold: float = 0.5
 
 class SuggestItem(BaseModel):
     class_name: str
@@ -132,8 +163,8 @@ class SuggestOut(BaseModel):
 
 # ---- ADD: endpoints ----
 @app.get("/api/semantic/status")
-async def semantic_status():
-    idx = _load_index()
+async def semantic_status(kind: str = "class"):
+    idx = _load_rel_index() if kind == "relation" else _load_index()
     ok = idx is not None
     return {
         "ready": bool(ok),
@@ -144,16 +175,17 @@ async def semantic_status():
 
 @app.post("/api/semantic/suggest", response_model=SuggestOut)
 async def semantic_suggest(payload: SuggestIn):
-    idx = _load_index()
+    idx = _load_rel_index() if payload.kind == "relation" else _load_index()
     if idx is None:
         raise HTTPException(503, "Semantic index missing. Run the embedding builder first.")
+
     query = " ".join([payload.query or "", payload.label or ""]).strip()
     if not query:
+        print('FUCCCCCCKKKK')
         return {"ready": True, "total": len(idx["labels"]), "items": []}
 
-    qvec = _encode_query([query])[0]  # (d,)
-    embs = idx["embeddings"]         # (N,d), already normalized
-    sims = (embs @ qvec)             # (N,)
+    qvec = _encode_query([query])[0]
+    sims = idx["embeddings"] @ qvec
 
     order = np.argsort(-sims)[: max(1, payload.top_k)]
     items = []
@@ -162,15 +194,33 @@ async def semantic_suggest(payload: SuggestIn):
         if s < payload.threshold:
             continue
         name = idx["labels"][i]
-        desc = (idx["meta"].get(name) or {}).get("description")
-        items.append({"class_name": name, "score": s, "description": desc})
+        meta = (idx["meta"].get(name) or {})
 
+        if payload.kind == "relation":
+            subj_ok = True
+            obj_ok = True
+            if payload.subject_class:
+                subj_ok = payload.subject_class in set(meta.get("subject", []))
+            if payload.object_class:
+                obj_ok = payload.object_class in set(meta.get("object", []))
+            if not (subj_ok and obj_ok):
+                continue
+
+        items.append({
+            "class_name": name,
+            "score": s,
+            "description": meta.get("description")
+        })
     return {"ready": True, "total": len(idx["labels"]), "items": items}
 
 # ---------- Routes ----------
 @app.get("/api/classes")
 async def get_classes():
     return load_json(CLASSES_FILE)
+
+@app.get("/api/relations")
+async def get_relations():
+    return load_json(RELATIONS_FILE)
 
 @app.get("/api/texts/next")
 async def get_next(cursor: Optional[int] = None):

@@ -506,6 +506,105 @@
             overflow: auto;
             scrollbar-width: thin;
         }
+
+        /* ---- Relationships UI ---- */
+        .rels-dropzone {
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 10px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .rels-dropzone.dragover {
+            background: rgba(122, 162, 247, .08);
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .rels-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+
+        .rel-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: rgba(17, 23, 40, .45);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 50px;
+        }
+
+        .rel-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--chip);
+            font-size: 12px;
+        }
+
+        .rel-placeholder {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 110px;
+            min-height: 24px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            border: 1px dashed var(--border);
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .rel-placeholder.dragover {
+            background: rgba(122, 162, 247, .08);
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .rel-btn {
+            border-radius: 999px;
+            padding: 4px 10px;
+        }
+
+        .rel-btn.as-chip {
+            background: var(--chip);
+            border-color: var(--border);
+        }
+
+        .rel-x {
+            margin-left: auto;
+            background: transparent;
+            border-color: transparent;
+            color: var(--muted);
+        }
+
+        .rel-x:hover {
+            color: #fff;
+        }
+
+        /* flash a relation row in red when invalid on save */
+        .rel-row.invalid {
+            border-color: var(--danger) !important;
+            box-shadow: 0 0 0 2px rgba(151, 26, 26, 0.45) inset;
+            transition: box-shadow .2s, border-color .2s;
+        }
+
+        /* draggable cue on legend chips (optional) */
+        .chip[draggable="true"] {
+            cursor: grab;
+        }
+
+        .chip[draggable="true"]:active {
+            cursor: grabbing;
+        }
     </style>
 </head>
 
@@ -544,6 +643,20 @@
                 <p id="empty-annot-note" class="empty" style="display:none; margin:8px 2px 0;">
                     <em>Text already annotated as EMPTY</em>
                 </p>
+                <!-- Relationships (drop zone + list) -->
+                <div id="rels-wrap" style="margin-top:20px">
+                    <h2
+                        style="margin:0 0 8px; font-size:14px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase;">
+                        Relationships
+                    </h2>
+
+                    <div id="rels-drop" class="rels-dropzone" aria-label="Relationships drop zone">
+                        Drag an entity chip from the left to start
+                    </div>
+
+                    <div id="rels-list" class="rels-list"></div>
+                </div>
+
             </div>
 
             <div class="footer" id="status">Ready.</div>
@@ -611,6 +724,57 @@
             </div>
         </div>
     </div>
+    <!-- Modal for selecting/editing a relation -->
+    <div class="modal-backdrop" id="rel-modal-bd">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rel-modal-title">
+            <div class="head" id="rel-modal-title">Select Relation</div>
+            <div class="body">
+                <div class="cols-top">
+                    <div class="col">
+                        <div class="field">
+                            <label>Relation</label>
+                            <select id="sel-rel"></select>
+                        </div>
+                    </div>
+
+                    <div class="col right-rail">
+                        <div class="field" style="align-items:flex-end">
+                            <label>Genius Search</label>
+                            <button id="btn-rel-find" class="ghost"
+                                style="width:min-content;padding-left:30px;padding-right:30px;">✨Find✨</button>
+                        </div>
+                        <div class="field" id="rel-suggest-section" style="display:none">
+                            <label>Semantic suggestions</label>
+                            <div id="rel-suggest" class="items"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cols">
+                    <div class="col">
+                        <div class="field">
+                            <label>Attributes</label>
+                            <div id="rel-attrs"></div>
+                        </div>
+                    </div>
+                    <div class="col desc-panel">
+                        <div class="field">
+                            <label>Relation description</label>
+                            <div id="rel-desc" class="desc-box"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="foot">
+                <button id="btn-rel-delete" class="warn" style="display:none">Remove</button>
+                <div style="display:flex; gap:8px; margin-left:auto">
+                    <button id="btn-rel-cancel" class="ghost">Cancel</button>
+                    <button id="btn-rel-confirm" class="primary">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Overwrite confirmation modal -->
     <div class="modal-backdrop" id="overwrite-bd">
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="overwrite-title">
@@ -629,7 +793,6 @@
             </div>
         </div>
     </div>
-
     <!-- ADD: Delete All confirmation modal -->
     <div class="modal-backdrop" id="delall-bd">
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="delall-title">
@@ -709,10 +872,12 @@
             tokens: [],
             selection: { startIdx: null, endIdx: null },
             annotations: [], // {id, class, label, attrs, span:{start,end}, tokenRange:[i,j]}
-            saved: { exists: false, wasEmpty: false }
+            saved: { exists: false, wasEmpty: false },
+            relations: [],              // [{id, predicate|null, subject, object|null, attrs:{}}]
+            relationsMeta: {},          // from /api/relations
         };
 
-        const ui = { mode: 'create', editId: null, dragging: false };
+        const ui = { mode: 'create', editId: null, dragging: false, relEditingId: null };
 
         function setStatus(msg) { $('#status').textContent = msg; }
 
@@ -766,22 +931,25 @@
                 if (!r.ok) throw new Error(await r.text());
                 return r.json();
             },
-            // ADD to API
-            async semanticStatus() {
-                const r = await fetch(`${API_BASE}/api/semantic/status`);
+            async getRelations() {
+                const r = await fetch(`${API_BASE}/api/relations`);
+                if (!r.ok) throw new Error('Failed to load relations');
+                return r.json();
+            },
+            // allow kind parameter for status
+            async semanticStatus(kind = 'class') {
+                const r = await fetch(`${API_BASE}/api/semantic/status?kind=${encodeURIComponent(kind)}`);
                 if (!r.ok) return { ready: false, size: 0, model: "", has_embedder: false };
                 return r.json();
             },
+            // pass through to backend; include kind when needed
             async semanticSuggest(payload) {
                 const r = await fetch(`${API_BASE}/api/semantic/suggest`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                 });
                 if (!r.ok) throw new Error(await r.text());
                 return r.json();
             },
-
         };
 
         // ============== Rendering ==============
@@ -853,12 +1021,40 @@
 
             for (const [klass, annos] of Object.entries(byClass)) {
                 const colors = classColor(klass);
-                const card = el('div', { className: 'class-card' }, [
-                    el('div', { className: 'header', style: `background:${colors.chip}; border-bottom:1px solid ${colors.border}` }, [klass]),
-                    el('div', { className: 'items' }, annos.map(a => el('span', { className: 'chip', style: `background:${colors.chip}; border-color:${colors.border}`, dataset: { annoId: a.id } }, [a.label || `${klass}`])))
-                ]);
-                // chip click → edit
-                card.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => openModal('edit', ch.dataset.annoId)));
+                const header = el(
+                    'div',
+                    { className: 'header', style: `background:${colors.chip}; border-bottom:1px solid ${colors.border}` },
+                    [klass]
+                );
+
+                // build items one-by-one so we can attach both click AND drag handlers
+                const itemsDiv = el('div', { className: 'items' });
+
+                for (const a of annos) {
+                    const chip = el(
+                        'span',
+                        {
+                            className: 'chip',
+                            style: `background:${colors.chip}; border-color:${colors.border}`,
+                            dataset: { annoId: a.id },
+                            draggable: true            // <-- make it draggable
+                        },
+                        [a.label || `${klass}`]
+                    );
+
+                    // click → edit (same behavior you had)
+                    chip.addEventListener('click', () => openModal('edit', a.id));
+
+                    // drag → send the entity id so the relationships section can read it
+                    chip.addEventListener('dragstart', (ev) => {
+                        ev.dataTransfer.setData('text/plain', a.id); // the entity id like "T3"
+                        ev.dataTransfer.effectAllowed = 'copy';
+                    });
+
+                    itemsDiv.appendChild(chip);
+                }
+
+                const card = el('div', { className: 'class-card' }, [header, itemsDiv]);
                 legend.appendChild(card);
             }
         }
@@ -914,6 +1110,158 @@
                 box.appendChild(chip);
             }
             section.style.display = 'block';
+        }
+
+        let relChoices = null;
+
+        function getRelChoicesSearchTerm() {
+            if (relChoices) relChoices.showDropdown();
+            const inp = $('#rel-modal-bd .choices__input--cloned');
+            return (inp && inp.value.trim()) || '';
+        }
+
+        function renderRelAttrFields(relName, prefill = {}) {
+            const wrap = $('#rel-attrs'); wrap.innerHTML = '';
+            const spec = state.relationsMeta[relName];
+            if (!spec || !spec.attributes || Object.keys(spec.attributes).length === 0) {
+                wrap.appendChild(el('div', { className: 'empty' }, ['No attributes.'])); return;
+            }
+            for (const [attr, aspec] of Object.entries(spec.attributes)) {
+                const row = el('div', { className: 'row', style: 'align-items:center' }, [
+                    el('label', { style: 'width:160px; color: var(--muted);' }, [attr])
+                ]);
+                let input;
+                if (aspec.enum) {
+                    input = el('select', { id: `rel-attr-${attr}` }, aspec.enum.map(v => el('option', { value: v }, [v])));
+                    if (aspec.nullable) input.prepend(el('option', { value: '', textContent: '(none)' }));
+                } else if (aspec.type === 'number') {
+                    input = el('input', { id: `rel-attr-${attr}`, type: 'number', step: 'any', style: 'width:120px' });
+                } else {
+                    input = el('input', { id: `rel-attr-${attr}`, type: 'text' });
+                }
+                const val = prefill[attr];
+                if (val !== undefined && val !== null) input.value = String(val);
+                row.appendChild(input);
+                wrap.appendChild(row);
+            }
+        }
+
+        function renderRelDescription(relName) {
+            const spec = state.relationsMeta[relName];
+            $('#rel-desc').textContent = (spec && spec.description) ? spec.description : '(no description)';
+        }
+
+        function entityById(id) { return state.annotations.find(a => a.id === id); }
+
+        function relationAllowedFor(subjectClass, objectClass, relName) {
+            const spec = state.relationsMeta[relName];
+            if (!spec) return false;
+            const subjOk = spec.subject?.includes(subjectClass);
+            const objOk = objectClass ? spec.object?.includes(objectClass) : true;
+            return !!(subjOk && objOk);
+        }
+
+        function getAllowedRelationNames(subjectClass, objectClass = null) {
+            const out = [];
+            for (const [name, spec] of Object.entries(state.relationsMeta)) {
+                if (relationAllowedFor(subjectClass, objectClass, name)) out.push(name);
+            }
+            return out;
+        }
+
+        function relRowDOM(rel) {
+            const subj = entityById(rel.subject);
+            const obj = rel.object ? entityById(rel.object) : null;
+
+            const subjColors = classColor(subj.class);
+            const subjChip = el('span', {
+                className: 'rel-chip',
+                style: `background:${subjColors.chip}; border-color:${subjColors.border}`
+            }, [`${subj.label} (${subj.class})`]);
+
+            const relBtnLabel = rel.predicate ? rel.predicate : 'Select relation';
+            const relBtn = el('button', { className: 'rel-btn ' + (rel.predicate ? 'as-chip' : ''), textContent: relBtnLabel });
+            relBtn.onclick = () => openRelModal(rel.id);
+
+            let objNode;
+            if (obj) {
+                const objColors = classColor(obj.class);
+                objNode = el('span', {
+                    className: 'rel-chip',
+                    style: `background:${objColors.chip}; border-color:${objColors.border}`
+                }, [`${obj.label} (${obj.class})`]);
+            } else {
+                objNode = el('span', { className: 'rel-placeholder', textContent: 'drop object here' });
+                // droppable placeholder for object
+                objNode.addEventListener('dragover', (e) => { e.preventDefault(); objNode.classList.add('dragover'); });
+                objNode.addEventListener('dragleave', () => objNode.classList.remove('dragover'));
+                objNode.addEventListener('drop', (e) => {
+                    e.preventDefault(); objNode.classList.remove('dragover');
+                    const entId = e.dataTransfer.getData('text/plain');
+                    if (!entId) return;
+                    rel.object = entId;
+                    const row = document.querySelector(`.rel-row[data-rel-id="${rel.id}"]`);
+                    if (row) row.classList.remove('invalid');
+                    ui.dirty = true; updatePrimaryButton();
+                    renderRelationships();
+                });
+            }
+
+            const x = el('button', { className: 'rel-x', textContent: '✕', title: 'Remove relation' });
+            x.onclick = () => {
+                state.relations = state.relations.filter(r => r.id !== rel.id);
+                ui.dirty = true; updatePrimaryButton();
+                renderRelationships();
+            };
+
+            return el('div', { className: 'rel-row', dataset: { relId: rel.id } }, [
+                subjChip, el('span', { textContent: ' — ' }), relBtn, el('span', { textContent: ' — ' }), objNode, x
+            ]);
+
+        }
+
+        function renderRelationships() {
+            const list = $('#rels-list');
+            const dz = $('#rels-drop');
+
+            // clear current rows
+            list.innerHTML = '';
+
+            // add a row DOM for each relation
+            for (const r of state.relations) {
+                list.appendChild(relRowDOM(r));
+            }
+
+            // ensure the drop zone is visible and positioned AFTER the list
+            dz.classList.remove('dragover');
+            dz.style.display = ''; // never hide it
+            // move it to the end of the wrap so it always appears below existing rows
+            if (dz.parentNode !== list.parentNode) {
+                // if someone changed HTML later; just append into wrap
+                list.parentNode.appendChild(dz);
+            } else {
+                // keep current parent, just ensure it is after the list
+                list.after(dz);
+            }
+            // (optional) reset its label each render
+            dz.textContent = 'Drag an entity chip from the left to start';
+        }
+
+        function validateRelations() {
+            let ok = true;
+            for (const r of state.relations) {
+                const complete = !!(r.subject && r.object && r.predicate && r.predicate.trim() !== '');
+                if (!complete) {
+                    ok = false;
+                    // flash the offending row
+                    const row = document.querySelector(`.rel-row[data-rel-id="${r.id}"]`);
+                    if (row) {
+                        row.classList.add('invalid');
+                        setTimeout(() => row.classList.remove('invalid'), 900);
+                    }
+                }
+            }
+            return ok;
         }
 
         // ============== Selection via drag ==============
@@ -1055,11 +1403,92 @@
                 ok.onclick = cancel.onclick = null;
                 bd.style.display = 'none';
             };
-            // on ok click -> delete all button turn disabled
+            // on ok click -> delete all button turn disabled    
             ok.onclick = () => { cleanup(); onConfirm && onConfirm(); $('#btn-delete-all').disabled = true; };
             cancel.onclick = () => { cleanup(); onCancel && onCancel(); };
         }
 
+        function openRelModal(relId) {
+            ui.relEditingId = relId;
+            const rel = state.relations.find(r => r.id === relId);
+            if (!rel) return;
+
+            const subj = entityById(rel.subject);
+            const obj = rel.object ? entityById(rel.object) : null;
+
+            $('#rel-modal-bd').style.display = 'flex';
+            $('#rel-modal-title').textContent = `Select Relation (${subj.class}${obj ? ' → ' + obj.class : ''})`;
+
+            // (Re)build select with allowed relations
+            const sel = $('#sel-rel');
+            sel.innerHTML = '';
+            const allowed = getAllowedRelationNames(subj.class, obj?.class);
+            allowed.forEach(name => sel.appendChild(el('option', { value: name }, [name])));
+
+            if (relChoices) { relChoices.destroy(); relChoices = null; }
+            relChoices = new Choices(sel, {
+                searchEnabled: true, shouldSort: false, itemSelectText: '', position: 'bottom', allowHTML: false
+            });
+
+            // preselect if already set
+            if (rel.predicate && allowed.includes(rel.predicate)) {
+                relChoices.setChoiceByValue(rel.predicate);
+                sel.value = rel.predicate;
+            }
+
+            // attrs + desc
+            renderRelAttrFields(sel.value, rel.attrs || {});
+            renderRelDescription(sel.value);
+
+            sel.addEventListener('change', () => {
+                renderRelAttrFields(sel.value, {});
+                renderRelDescription(sel.value);
+            });
+
+            // enable/disable Find button based on backend readiness
+            API.semanticStatus('relation').then(s => {
+                const b = $('#btn-rel-find');
+                b.disabled = !(s.ready && s.has_embedder && s.size > 0);
+                b.title = b.disabled ? 'Semantic index not ready' : 'Semantic search relations';
+            });
+
+            // delete inside modal removes this relation row
+            $('#btn-rel-delete').style.display = 'inline-flex';
+            $('#btn-rel-delete').onclick = () => {
+                state.relations = state.relations.filter(r => r.id !== rel.id);
+                $('#rel-modal-bd').style.display = 'none';
+                ui.dirty = true; updatePrimaryButton();
+                renderRelationships();
+            };
+        }
+        function closeRelModal() { $('#rel-modal-bd').style.display = 'none'; }
+
+        $('#btn-rel-cancel').onclick = closeRelModal;
+        $('#btn-rel-confirm').onclick = () => {
+            const rel = state.relations.find(r => r.id === ui.relEditingId);
+            if (!rel) return;
+            const name = $('#sel-rel').value;
+            rel.predicate = name;
+            const row = document.querySelector(`.rel-row[data-rel-id="${rel.id}"]`);
+            if (row) row.classList.remove('invalid');
+
+            // collect relation attributes
+            const spec = state.relationsMeta[name] || { attributes: {} };
+            const out = {};
+            for (const [attr, aspec] of Object.entries(spec.attributes || {})) {
+                const node = document.querySelector(`#rel-attr-${attr}`);
+                if (!node) continue;
+                const raw = node.value;
+                if (raw === '' && aspec.nullable) out[attr] = null;
+                else if (aspec.type === 'number') out[attr] = raw === '' ? null : Number(raw);
+                else out[attr] = raw;
+            }
+            rel.attrs = out;
+
+            ui.dirty = true; updatePrimaryButton();
+            renderRelationships();
+            closeRelModal();
+        };
 
         function renderAttrFields(prefill = {}) {
             const wrap = $('#attrs');
@@ -1097,6 +1526,59 @@
                 wrap.appendChild(field);
             }
         }
+
+        function clearRelSuggestions() {
+            $('#rel-suggest').innerHTML = '';
+            $('#rel-suggest-section').style.display = 'none';
+        }
+        function renderRelSuggestions(items) {
+            const section = $('#rel-suggest-section');
+            const box = $('#rel-suggest'); box.innerHTML = '';
+            if (!items || items.length === 0) {
+                section.style.display = 'block';
+                box.appendChild(el('span', { className: 'empty' }, ['No semantic suggestions.']));
+                return;
+            }
+            for (const it of items) {
+                const chip = el('span', { className: 'chip', title: it.description || '' }, [
+                    it.class_name, ' ', el('small', {}, [`${Math.round(it.score * 100)}%`])
+                ]);
+                chip.addEventListener('click', () => {
+                    if (relChoices) relChoices.setChoiceByValue(it.class_name);
+                    $('#sel-rel').value = it.class_name;
+                    $('#sel-rel').dispatchEvent(new Event('change'));
+                });
+                box.appendChild(chip);
+            }
+            section.style.display = 'block';
+        }
+
+        $('#btn-rel-find').onclick = async () => {
+            const rel = state.relations.find(r => r.id === ui.relEditingId);
+            if (!rel) return;
+            const subj = entityById(rel.subject);
+            const obj = rel.object ? entityById(rel.object) : null;
+            const query = getRelChoicesSearchTerm();
+
+            try {
+                $('#btn-rel-find').classList.add('loading');
+                const res = await API.semanticSuggest({
+                    kind: 'relation',
+                    query,
+                    top_k: 8,
+                    threshold: 0.2,
+                    subject_class: subj.class,
+                    object_class: obj?.class || null
+                });
+                // Front-end safety filter (in case backend has wider set):
+                const filtered = res.items.filter(it => relationAllowedFor(subj.class, obj?.class, it.class_name));
+                renderRelSuggestions(filtered);
+            } catch (e) {
+                alert('Semantic search failed: ' + e.message);
+            } finally {
+                $('#btn-rel-find').classList.remove('loading');
+            }
+        };
 
         function surfaceFormFromSelection() {
             const { startIdx, endIdx } = state.selection;
@@ -1163,6 +1645,10 @@
             if (ui.mode !== 'edit') return;
             const id = ui.editId;
             state.annotations = state.annotations.filter(a => a.id !== id);
+            const removedId = id; // your existing var
+            const before = state.relations.length;
+            state.relations = state.relations.filter(r => r.subject !== removedId && r.object !== removedId);
+            if (state.relations.length !== before) renderRelationships();
             // if no current annotations left, disable Delete all button
             if (state.annotations.length === 0) { $('#btn-delete-all').disabled = true; }
             ui.dirty = true;
@@ -1248,6 +1734,12 @@
                     return;
                 }
 
+                // 🚧 block saving if any relation is incomplete
+                if (!validateRelations()) {
+                    setStatus('Please complete highlighted relationships before saving.');
+                    return;
+                }
+
                 // Otherwise: Save (may overwrite)
                 const payload = buildAnnotationPayload();
 
@@ -1290,9 +1782,11 @@
             openDeleteAllModal(
                 () => {
                     state.annotations = [];
+                    state.relations = [];
                     ui.dirty = true;          // user changed the current doc
                     updatePrimaryButton(); // update Save/Skip button
                     applyAnnotationHighlights();
+                    renderRelationships();
                     renderLegend();
                     clearSelection();
                     setStatus('All annotations cleared.');
@@ -1300,6 +1794,26 @@
                 () => setStatus('Delete all canceled.')
             );
         };
+
+        const relDrop = $('#rels-drop');
+        relDrop.addEventListener('dragover', (e) => { e.preventDefault(); relDrop.classList.add('dragover'); });
+        relDrop.addEventListener('dragleave', () => relDrop.classList.remove('dragover'));
+        relDrop.addEventListener('drop', (e) => {
+            e.preventDefault(); relDrop.classList.remove('dragover');
+            const entId = e.dataTransfer.getData('text/plain');
+            if (!entId) return;
+            // new relation with subject = dropped entity
+            const rel = {
+                id: `R${state.relations.length + 1}`,
+                predicate: null,
+                subject: entId,
+                object: null,
+                attrs: {}
+            };
+            state.relations.push(rel);
+            ui.dirty = true; updatePrimaryButton();
+            renderRelationships(); // drop zone stays visible under the new row
+        });
 
         function buildAnnotationPayload() {
             return {
@@ -1311,9 +1825,17 @@
                     label: a.label,
                     span: { start: a.span.start, end: a.span.end },
                     attributes: a.attrs
+                })),
+                relations: state.relations.map(r => ({
+                    id: r.id,
+                    predicate: r.predicate || '',
+                    subject: r.subject,
+                    object: r.object,
+                    attributes: r.attrs || {}
                 }))
             };
         }
+
         // REPLACE
         async function loadTextResponse(data) {
             state.current = { id: data.id, text: data.text };
@@ -1366,12 +1888,29 @@
                     renderLegend();
                     setStatus(`Doc ${data.cursor + 1} / ${data.total}`);
                 }
+                // Relations (if present)
+                state.relations = [];
+                if (saved && Array.isArray(saved.relations)) {
+                    // Keep only edges referring to existing entities
+                    const ids = new Set(state.annotations.map(a => a.id));
+                    for (const r of saved.relations) {
+                        if (ids.has(r.subject) && ids.has(r.object)) {
+                            state.relations.push({
+                                id: r.id,
+                                predicate: r.predicate || null,
+                                subject: r.subject,
+                                object: r.object,
+                                attrs: r.attributes || {}
+                            });
+                        }
+                    }
+                }
+                renderRelationships();
             } catch (e) {
                 // 404 → no saved annotations
                 renderLegend();
                 setStatus(`Doc ${data.cursor + 1} / ${data.total}`);
             }
-
             // Fresh load: untouched
             ui.dirty = false;
             updatePrimaryButton();
@@ -1381,11 +1920,12 @@
         async function boot() {
             try {
                 state.classes = await API.getClasses();
+                state.relationsMeta = await API.getRelations();
                 const data = await API.getNextText(null);
                 loadTextResponse(data);
+                renderRelationships();
             } catch (e) { console.error(e); setStatus('Failed to initialize. Is the backend running?'); }
         }
-
         boot();
     </script>
 </body>
