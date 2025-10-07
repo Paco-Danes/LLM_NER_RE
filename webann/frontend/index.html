@@ -605,6 +605,29 @@
         .chip[draggable="true"]:active {
             cursor: grabbing;
         }
+
+        #rel-overlay path {
+            stroke: rgb(0, 255, 255);
+            stroke-width: 1.5;
+            stroke-dasharray: 4 3;
+            fill: none;
+        }
+
+        #rel-overlay text {
+            fill: #000000;
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+            /* this one *can* be in CSS */
+        }
+
+        #rel-overlay rect {
+            fill: rgba(117, 244, 255, 0.77);
+        }
+
+        .textwrap {
+            position: relative;
+        }
     </style>
 </head>
 
@@ -640,6 +663,9 @@
             </div>
             <div class="textwrap">
                 <div class="text" id="text"></div>
+                <!-- Overlay for relation hover lines -->
+                <svg id="rel-overlay" style="position:absolute; inset:0; pointer-events:none; z-index:20;"></svg>
+
                 <p id="empty-annot-note" class="empty" style="display:none; margin:8px 2px 0;">
                     <em>Text already annotated as EMPTY</em>
                 </p>
@@ -777,7 +803,8 @@
     </div>
     <!-- Overwrite confirmation modal -->
     <div class="modal-backdrop" id="overwrite-bd">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="overwrite-title">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="overwrite-title"
+            style="width: min(500px, calc(100% - 32px));">
             <div class="head" id="overwrite-title">Overwrite existing annotations?</div>
             <div class="body">
                 <p>
@@ -1312,6 +1339,84 @@
 
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') clearSelection(); });
 
+        function getEntityCenter(ent) {
+            // average center of all tokens in the entity span
+            const [i0, i1] = ent.tokenRange;
+            const tokens = [];
+            for (let i = i0; i <= i1; i++) {
+                const node = document.querySelector(`.token[data-idx="${i}"]`);
+                if (node) tokens.push(node);
+            }
+            if (!tokens.length) return null;
+            const rects = tokens.map(t => t.getBoundingClientRect());
+            const wrapRect = $('.textwrap').getBoundingClientRect();
+            const midX = (Math.min(...rects.map(r => r.left)) + Math.max(...rects.map(r => r.right))) / 2;
+            const midY = (Math.min(...rects.map(r => r.top)) + Math.max(...rects.map(r => r.bottom))) / 2;
+            return { x: midX - wrapRect.left, y: midY - wrapRect.top };
+        }
+
+        function drawRelationLinesForEntity(entId) {
+            const svg = $('#rel-overlay');
+            svg.innerHTML = '';
+            const container = $('.textwrap');
+            const cRect = container.getBoundingClientRect();
+            svg.setAttribute('width', cRect.width);
+            svg.setAttribute('height', cRect.height);
+            const ent = state.annotations.find(a => a.id === entId);
+            if (!ent) return;
+            const centerA = getEntityCenter(ent);
+            if (!centerA) return;
+
+            const rels = state.relations.filter(r => r.subject === entId || r.object === entId);
+            for (const r of rels) {
+                const otherId = (r.subject === entId) ? r.object : r.subject;
+                const other = state.annotations.find(a => a.id === otherId);
+                if (!other) continue;
+                const centerB = getEntityCenter(other);
+                if (!centerB) continue;
+
+                // simple curved path between A and B
+                const dx = (centerB.x - centerA.x);
+                const dy = (centerB.y - centerA.y);
+                const cx1 = centerA.x + dx / 3;
+                const cy1 = centerA.y - 20; // slight curve upward
+                const cx2 = centerB.x - dx / 3;
+                const cy2 = centerB.y - 20;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', `M${centerA.x},${centerA.y} C${cx1},${cy1} ${cx2},${cy2} ${centerB.x},${centerB.y}`);
+                svg.appendChild(path);
+
+                // midpoint for label
+                const midX = (centerA.x + centerB.x) / 2;
+                const midY = (centerA.y + centerB.y) / 2 - 12;
+
+                const label = r.predicate || '(no relation)';
+                const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                textEl.setAttribute('x', midX);
+                textEl.setAttribute('y', midY);
+                textEl.setAttribute('text-anchor', 'middle');      // ✅ attribute, not CSS
+                textEl.setAttribute('dominant-baseline', 'middle'); // ✅ attribute
+                textEl.textContent = label;
+
+                const bbox = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                const textLen = label.length * 6.5 + 8;
+                bbox.setAttribute('x', midX - textLen / 2);
+                bbox.setAttribute('y', midY - 8);
+                bbox.setAttribute('width', textLen);
+                bbox.setAttribute('height', 16);
+                bbox.setAttribute('rx', 4); // ✅ attribute, rounded corners
+                bbox.setAttribute('ry', 4);
+
+                svg.appendChild(bbox);
+                svg.appendChild(textEl);
+            }
+        }
+
+        function clearRelationOverlay() {
+            $('#rel-overlay').innerHTML = '';
+        }
+
         // ============== Modal (create/edit) ==============
         function openModal(mode = 'create', annoId = null) {
             ui.mode = mode; ui.editId = annoId;
@@ -1814,6 +1919,37 @@
             ui.dirty = true; updatePrimaryButton();
             renderRelationships(); // drop zone stays visible under the new row
         });
+
+        // Show lines when hovering entity tokens
+        document.addEventListener('mouseover', (e) => {
+            const tok = e.target.closest('.token[data-annotated="true"]');
+            if (tok) {
+                // find which annotation this token belongs to
+                const idx = Number(tok.dataset.idx);
+                const ent = state.annotations.find(a => idx >= a.tokenRange[0] && idx <= a.tokenRange[1]);
+                if (ent) drawRelationLinesForEntity(ent.id);
+            }
+        });
+        document.addEventListener('mouseout', (e) => {
+            if (e.target.closest('.token')) clearRelationOverlay();
+        });
+
+        // Show lines when hovering relation rows in the list
+        $('#rels-list').addEventListener('mouseover', (e) => {
+            const row = e.target.closest('.rel-row');
+            if (!row) return;
+            const relId = row.dataset.relId;
+            const rel = state.relations.find(r => r.id === relId);
+            if (!rel) return;
+            const subj = rel.subject, obj = rel.object;
+            const svg = $('#rel-overlay');
+            svg.innerHTML = '';
+            if (subj && obj) drawRelationLinesForEntity(subj); // draws both ways
+        });
+        $('#rels-list').addEventListener('mouseout', (e) => {
+            if (e.target.closest('.rel-row')) clearRelationOverlay();
+        });
+
 
         function buildAnnotationPayload() {
             return {
