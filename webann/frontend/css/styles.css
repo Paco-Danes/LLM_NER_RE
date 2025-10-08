@@ -1,0 +1,634 @@
+:root {
+    --bg: #0b0e14;
+    --panel: #0f1320;
+    --text: #e6e6e6;
+    --muted: #9aa4b2;
+    --accent: #7aa2f7;
+    --border: #1f2536;
+    --chip: #151a28;
+    --danger: #971a1a;
+    --ok: #2ecc71;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+    background: linear-gradient(180deg, #0b0e14 0%, #0a1024 100%);
+    color: var(--text);
+}
+
+.app {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: 100vh;
+}
+
+.sidebar {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow: auto;
+}
+
+.main {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+}
+
+.toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(12, 16, 28, .6);
+    backdrop-filter: blur(6px);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.toolbar .spacer {
+    flex: 1;
+}
+
+button,
+select,
+input,
+.btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: #12182a;
+    color: var(--text);
+    border-radius: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+button:hover {
+    filter: brightness(1.07);
+}
+
+button.primary {
+    background: var(--accent);
+    border-color: #5a7dde;
+    color: #0b0e14;
+}
+
+button.ghost {
+    background: transparent;
+}
+
+button.warn {
+    background: var(--danger);
+    border-color: #aa3030;
+    color: white;
+}
+
+button.ok {
+    background: var(--ok);
+    border-color: #1e9e5a;
+    color: #0b0e14;
+}
+
+/* Disabled button style */
+button:disabled,
+button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: none;
+    /* prevent hover filter */
+    transform: none;
+}
+
+.bulk-actions {
+    margin-top: 12px;
+}
+
+.textwrap {
+    padding: 18px 24px;
+    overflow: auto;
+}
+
+.text {
+    background: rgba(17, 23, 40, 0.55);
+    border: 1px solid var(--border);
+    padding: 18px;
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+    user-select: none;
+    /* disable native highlight */
+}
+
+.token {
+    padding: 2px 1px;
+    border-radius: 6px;
+    position: relative;
+    transition: background .1s;
+    user-select: none;
+}
+
+.token[data-selected="true"] {
+    background: rgba(122, 162, 247, 0.25);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.token[data-annotated="true"] {
+    cursor: help;
+}
+
+.token[data-annotated="true"]::after {
+    content: attr(data-anno-label);
+    position: absolute;
+    left: 0;
+    bottom: 100%;
+    transform: translateY(-6px);
+    font-size: 11px;
+    background: #0f1320;
+    color: var(--muted);
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity .12s ease;
+}
+
+.token[data-annotated="true"]:hover::after {
+    opacity: 1;
+}
+
+.legend {
+    display: grid;
+    gap: 10px;
+}
+
+.legend h2 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.class-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.class-card .header {
+    padding: 10px 12px;
+    font-weight: 800;
+}
+
+.class-card .items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px 12px;
+}
+
+.chip {
+    background: var(--chip);
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.empty {
+    color: var(--muted);
+    font-style: italic;
+}
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+}
+
+.modal {
+    width: min(800px, calc(100% - 32px));
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+}
+
+.modal .head {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 800;
+}
+
+.modal .body {
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+}
+
+.modal .foot {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    justify-content: space-between;
+    align-items: center;
+}
+
+.field {
+    display: grid;
+    gap: 6px;
+}
+
+/* ==== Custom dark theme for Choices.js ==== */
+
+.choices {
+    --choice-bg: #12182a;
+    --choice-border: #2a3248;
+    --choice-hover: #1f253a;
+    --choice-text: #e6e6e6;
+    --choice-placeholder: #9aa4b2;
+    --choice-accent: #7aa2f7;
+}
+
+/* Container */
+.choices {
+    background: var(--choice-bg);
+    color: var(--choice-text);
+    border: 1px solid var(--choice-border);
+    border-radius: 10px;
+    font-size: 14px;
+    width: 100%;
+}
+
+/* When focused (active dropdown) */
+.choices.is-focused {
+    border-color: var(--choice-accent);
+    box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.25);
+}
+
+/* Selected item (the box visible when closed) */
+.choices__inner {
+    background: var(--choice-bg);
+    color: var(--choice-text);
+    border: none;
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+
+/* Dropdown panel */
+.choices__list--dropdown,
+.choices__list[aria-expanded] {
+    background: #0f1320;
+    border: 1px solid var(--choice-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    color: var(--choice-text);
+    /* no max-height or overflow here */
+    overflow: visible;
+}
+
+/* ✅ only the inner list gets a scrollbar */
+.choices__list--dropdown .choices__list {
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+/* optional: thin scrollbar styling (Firefox) */
+.choices__list--dropdown .choices__list {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, .2) transparent;
+}
+
+/* Individual options */
+.choices__list--dropdown .choices__item {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.choices__list--dropdown .choices__item:last-child {
+    border-bottom: none;
+}
+
+.choices__list--dropdown .choices__item.is-highlighted,
+.choices__list--dropdown .choices__item:hover {
+    background-color: var(--choice-hover) !important;
+    /* use !important to override inline style */
+    color: var(--choice-text);
+}
+
+/* Placeholder text */
+.choices__placeholder {
+    color: var(--choice-placeholder);
+}
+
+/* Hide the “Press to select” hint */
+.choices__item--selectable::after {
+    display: none;
+}
+
+.choices__list--dropdown {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Search input at the top of the dropdown */
+.choices__input.choices__input--cloned {
+    background-color: #2d395f !important;
+    /* same as modal background */
+    color: #e6e6e6;
+    /* text color */
+    border: 1px solid var(--border);
+    /* subtle border */
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin: 6px;
+}
+
+.choices__input.choices__input--cloned::placeholder {
+    color: #7c8798;
+}
+
+.row {
+    display: flex;
+    gap: 8px;
+}
+
+.field label {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    background: #0a0f1d;
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+}
+
+.cols {
+    display: grid;
+    grid-template-columns: minmax(240px, max-content) 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+/* Stack on narrow screens */
+@media (max-width: 720px) {
+    .cols {
+        grid-template-columns: 1fr;
+    }
+}
+
+.desc-panel {
+    border-left: 1px solid var(--border);
+    padding-left: 16px;
+    color: var(--muted);
+    min-width: 220px;
+    /* ensures room for the description */
+}
+
+.desc-box {
+    max-height: 160px;
+    /* limit vertical growth */
+    overflow-y: auto;
+    /* scroll when content exceeds max height */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    white-space: pre-wrap;
+    font-size: 13px;
+    line-height: 1.4;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+
+/* ADD */
+#btn-sem-find.loading {
+    position: relative;
+    pointer-events: none;
+    opacity: .7;
+}
+
+#btn-sem-find.loading::after {
+    content: '…';
+    margin-left: 6px;
+    animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
+}
+
+/* Optional: make suggestion chips a bit tighter in this block */
+#sem-suggest .chip {
+    padding: 2px 7px;
+    font-size: 12px;
+}
+
+#sem-suggest small {
+    opacity: .7;
+    margin-left: 4px;
+    font-size: 11px;
+}
+
+/* Top block now splits the modal: left (inputs) | right (find + chips) */
+.cols-top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* halves the modal */
+    gap: 16px;
+    align-items: start;
+}
+
+/* Chips and button niceties on the right rail */
+.right-rail .items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.w-full {
+    width: 100%;
+}
+
+/* Make the two halves stack on small screens */
+@media (max-width: 720px) {
+    .cols-top {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Keep from ballooning vertically */
+#sem-suggest {
+    max-height: 140px;
+    overflow: auto;
+    scrollbar-width: thin;
+}
+
+/* ---- Relationships UI ---- */
+.rels-dropzone {
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 10px;
+    color: var(--muted);
+    text-align: center;
+}
+
+.rels-dropzone.dragover {
+    background: rgba(122, 162, 247, .08);
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.rels-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+
+.rel-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: rgba(17, 23, 40, .45);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px 50px;
+}
+
+.rel-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--chip);
+    font-size: 12px;
+}
+
+.rel-placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 110px;
+    min-height: 24px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.rel-placeholder.dragover {
+    background: rgba(122, 162, 247, .08);
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.rel-btn {
+    border-radius: 999px;
+    padding: 4px 10px;
+}
+
+.rel-btn.as-chip {
+    background: var(--chip);
+    border-color: var(--border);
+}
+
+.rel-x {
+    margin-left: auto;
+    background: transparent;
+    border-color: transparent;
+    color: var(--muted);
+}
+
+.rel-x:hover {
+    color: #fff;
+}
+
+/* flash a relation row in red when invalid on save */
+.rel-row.invalid {
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 2px rgba(151, 26, 26, 0.45) inset;
+    transition: box-shadow .2s, border-color .2s;
+}
+
+/* draggable cue on legend chips (optional) */
+.chip[draggable="true"] {
+    cursor: grab;
+}
+
+.chip[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+#rel-overlay path {
+    stroke: rgb(0, 255, 255);
+    stroke-width: 1.75;
+    stroke-dasharray: 4 3;
+    fill: none;
+}
+
+#rel-overlay text {
+    fill: #000000;
+    font-size: 12px;
+    font-weight: bold;
+    text-anchor: middle;
+    /* this one *can* be in CSS */
+}
+
+#rel-overlay rect {
+    fill: rgba(117, 244, 255, 0.77);
+}
+
+/* inline role error on relation rows */
+.rel-error {
+    margin-left: 8px;
+    color: var(--danger);
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity .2s ease;
+}
+
+.rel-error.show {
+    opacity: 1;
+}
+
+.textwrap {
+    position: relative;
+}

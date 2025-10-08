@@ -4,841 +4,24 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NER Annotation Tool</title>
+    <title>NER+RE Annotation Tool</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-    <style>
-        :root {
-            --bg: #0b0e14;
-            --panel: #0f1320;
-            --text: #e6e6e6;
-            --muted: #9aa4b2;
-            --accent: #7aa2f7;
-            --border: #1f2536;
-            --chip: #151a28;
-            --danger: #971a1a;
-            --ok: #2ecc71;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            height: 100%;
-        }
-
-        body {
-            margin: 0;
-            font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
-            background: linear-gradient(180deg, #0b0e14 0%, #0a1024 100%);
-            color: var(--text);
-        }
-
-        .app {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            height: 100vh;
-        }
-
-        .sidebar {
-            background: var(--panel);
-            border-right: 1px solid var(--border);
-            padding: 16px;
-            overflow: auto;
-        }
-
-        .main {
-            display: grid;
-            grid-template-rows: auto 1fr auto;
-            height: 100vh;
-        }
-
-        .toolbar {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border);
-            background: rgba(12, 16, 28, .6);
-            backdrop-filter: blur(6px);
-            position: sticky;
-            top: 0;
-            z-index: 5;
-        }
-
-        .toolbar .spacer {
-            flex: 1;
-        }
-
-        button,
-        select,
-        input,
-        .btn {
-            appearance: none;
-            border: 1px solid var(--border);
-            background: #12182a;
-            color: var(--text);
-            border-radius: 10px;
-            padding: 8px 12px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        button:hover {
-            filter: brightness(1.07);
-        }
-
-        button.primary {
-            background: var(--accent);
-            border-color: #5a7dde;
-            color: #0b0e14;
-        }
-
-        button.ghost {
-            background: transparent;
-        }
-
-        button.warn {
-            background: var(--danger);
-            border-color: #aa3030;
-            color: white;
-        }
-
-        button.ok {
-            background: var(--ok);
-            border-color: #1e9e5a;
-            color: #0b0e14;
-        }
-
-        /* Disabled button style */
-        button:disabled,
-        button[disabled] {
-            opacity: 0.5;
-            cursor: not-allowed;
-            filter: none;
-            /* prevent hover filter */
-            transform: none;
-        }
-
-        .bulk-actions {
-            margin-top: 12px;
-        }
-
-        .textwrap {
-            padding: 18px 24px;
-            overflow: auto;
-        }
-
-        .text {
-            background: rgba(17, 23, 40, 0.55);
-            border: 1px solid var(--border);
-            padding: 18px;
-            border-radius: 14px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
-            user-select: none;
-            /* disable native highlight */
-        }
-
-        .token {
-            padding: 2px 1px;
-            border-radius: 6px;
-            position: relative;
-            transition: background .1s;
-            user-select: none;
-        }
-
-        .token[data-selected="true"] {
-            background: rgba(122, 162, 247, 0.25);
-            outline: 2px solid var(--accent);
-            outline-offset: 1px;
-        }
-
-        .token[data-annotated="true"] {
-            cursor: help;
-        }
-
-        .token[data-annotated="true"]::after {
-            content: attr(data-anno-label);
-            position: absolute;
-            left: 0;
-            bottom: 100%;
-            transform: translateY(-6px);
-            font-size: 11px;
-            background: #0f1320;
-            color: var(--muted);
-            padding: 2px 6px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            opacity: 0;
-            pointer-events: none;
-            white-space: nowrap;
-            transition: opacity .12s ease;
-        }
-
-        .token[data-annotated="true"]:hover::after {
-            opacity: 1;
-        }
-
-        .legend {
-            display: grid;
-            gap: 10px;
-        }
-
-        .legend h2 {
-            margin: 0 0 8px;
-            font-size: 14px;
-            color: var(--muted);
-            letter-spacing: .08em;
-            text-transform: uppercase;
-        }
-
-        .class-card {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .class-card .header {
-            padding: 10px 12px;
-            font-weight: 800;
-        }
-
-        .class-card .items {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            padding: 10px 12px 12px;
-        }
-
-        .chip {
-            background: var(--chip);
-            border: 1px solid var(--border);
-            padding: 4px 8px;
-            border-radius: 999px;
-            font-size: 12px;
-            cursor: pointer;
-        }
-
-        .empty {
-            color: var(--muted);
-            font-style: italic;
-        }
-
-        .modal-backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, .5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 999;
-        }
-
-        .modal {
-            width: min(800px, calc(100% - 32px));
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
-        }
-
-        .modal .head {
-            padding: 14px 16px;
-            border-bottom: 1px solid var(--border);
-            font-weight: 800;
-        }
-
-        .modal .body {
-            padding: 16px;
-            display: grid;
-            gap: 12px;
-        }
-
-        .modal .foot {
-            display: flex;
-            gap: 8px;
-            padding: 12px 16px;
-            border-top: 1px solid var(--border);
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .field {
-            display: grid;
-            gap: 6px;
-        }
-
-        /* ==== Custom dark theme for Choices.js ==== */
-
-        .choices {
-            --choice-bg: #12182a;
-            --choice-border: #2a3248;
-            --choice-hover: #1f253a;
-            --choice-text: #e6e6e6;
-            --choice-placeholder: #9aa4b2;
-            --choice-accent: #7aa2f7;
-        }
-
-        /* Container */
-        .choices {
-            background: var(--choice-bg);
-            color: var(--choice-text);
-            border: 1px solid var(--choice-border);
-            border-radius: 10px;
-            font-size: 14px;
-            width: 100%;
-        }
-
-        /* When focused (active dropdown) */
-        .choices.is-focused {
-            border-color: var(--choice-accent);
-            box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.25);
-        }
-
-        /* Selected item (the box visible when closed) */
-        .choices__inner {
-            background: var(--choice-bg);
-            color: var(--choice-text);
-            border: none;
-            border-radius: 10px;
-            padding: 8px 10px;
-        }
-
-        /* Dropdown panel */
-        .choices__list--dropdown,
-        .choices__list[aria-expanded] {
-            background: #0f1320;
-            border: 1px solid var(--choice-border);
-            border-radius: 10px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-            color: var(--choice-text);
-            /* no max-height or overflow here */
-            overflow: visible;
-        }
-
-        /* ✅ only the inner list gets a scrollbar */
-        .choices__list--dropdown .choices__list {
-            max-height: 240px;
-            overflow-y: auto;
-        }
-
-        /* optional: thin scrollbar styling (Firefox) */
-        .choices__list--dropdown .choices__list {
-            scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, .2) transparent;
-        }
-
-        /* Individual options */
-        .choices__list--dropdown .choices__item {
-            padding: 8px 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-        }
-
-        .choices__list--dropdown .choices__item:last-child {
-            border-bottom: none;
-        }
-
-        .choices__list--dropdown .choices__item.is-highlighted,
-        .choices__list--dropdown .choices__item:hover {
-            background-color: var(--choice-hover) !important;
-            /* use !important to override inline style */
-            color: var(--choice-text);
-        }
-
-        /* Placeholder text */
-        .choices__placeholder {
-            color: var(--choice-placeholder);
-        }
-
-        /* Hide the “Press to select” hint */
-        .choices__item--selectable::after {
-            display: none;
-        }
-
-        .choices__list--dropdown {
-            scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-        }
-
-        /* Search input at the top of the dropdown */
-        .choices__input.choices__input--cloned {
-            background-color: #2d395f !important;
-            /* same as modal background */
-            color: #e6e6e6;
-            /* text color */
-            border: 1px solid var(--border);
-            /* subtle border */
-            border-radius: 8px;
-            padding: 6px 10px;
-            margin: 6px;
-        }
-
-        .choices__input.choices__input--cloned::placeholder {
-            color: #7c8798;
-        }
-
-        .row {
-            display: flex;
-            gap: 8px;
-        }
-
-        .field label {
-            font-size: 12px;
-            color: var(--muted);
-        }
-
-        .kbd {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            background: #0a0f1d;
-            border: 1px solid var(--border);
-            padding: 2px 6px;
-            border-radius: 6px;
-            font-size: 12px;
-            color: var(--muted);
-        }
-
-        .footer {
-            padding: 10px 16px;
-            border-top: 1px solid var(--border);
-            color: var(--muted);
-        }
-
-        .cols {
-            display: grid;
-            grid-template-columns: minmax(240px, max-content) 1fr;
-            gap: 16px;
-            align-items: start;
-        }
-
-        /* Stack on narrow screens */
-        @media (max-width: 720px) {
-            .cols {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .desc-panel {
-            border-left: 1px solid var(--border);
-            padding-left: 16px;
-            color: var(--muted);
-            min-width: 220px;
-            /* ensures room for the description */
-        }
-
-        .desc-box {
-            max-height: 160px;
-            /* limit vertical growth */
-            overflow-y: auto;
-            /* scroll when content exceeds max height */
-            scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-            white-space: pre-wrap;
-            font-size: 13px;
-            line-height: 1.4;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 8px 10px;
-        }
-
-        /* ADD */
-        #btn-sem-find.loading {
-            position: relative;
-            pointer-events: none;
-            opacity: .7;
-        }
-
-        #btn-sem-find.loading::after {
-            content: '…';
-            margin-left: 6px;
-            animation: blink 1s steps(1) infinite;
-        }
-
-        @keyframes blink {
-            50% {
-                opacity: 0;
-            }
-        }
-
-        /* Optional: make suggestion chips a bit tighter in this block */
-        #sem-suggest .chip {
-            padding: 3px 8px;
-        }
-
-        #sem-suggest small {
-            opacity: .7;
-            margin-left: 4px;
-            font-size: 11px;
-        }
-
-        /* Top block now splits the modal: left (inputs) | right (find + chips) */
-        .cols-top {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            /* halves the modal */
-            gap: 16px;
-            align-items: start;
-        }
-
-        /* Chips and button niceties on the right rail */
-        .right-rail .items {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .w-full {
-            width: 100%;
-        }
-
-        /* Make the two halves stack on small screens */
-        @media (max-width: 720px) {
-            .cols-top {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Keep from ballooning vertically */
-        #sem-suggest {
-            max-height: 140px;
-            overflow: auto;
-            scrollbar-width: thin;
-        }
-
-        /* ---- Relationships UI ---- */
-        .rels-dropzone {
-            border: 1px dashed var(--border);
-            border-radius: 12px;
-            padding: 10px;
-            color: var(--muted);
-            text-align: center;
-        }
-
-        .rels-dropzone.dragover {
-            background: rgba(122, 162, 247, .08);
-            border-color: var(--accent);
-            color: var(--text);
-        }
-
-        .rels-list {
-            display: grid;
-            gap: 8px;
-            margin-top: 10px;
-            margin-bottom: 5px;
-        }
-
-        .rel-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            background: rgba(17, 23, 40, .45);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 8px 50px;
-        }
-
-        .rel-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 3px 8px;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            background: var(--chip);
-            font-size: 12px;
-        }
-
-        .rel-placeholder {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 110px;
-            min-height: 24px;
-            padding: 3px 8px;
-            border-radius: 999px;
-            border: 1px dashed var(--border);
-            color: var(--muted);
-            font-size: 12px;
-        }
-
-        .rel-placeholder.dragover {
-            background: rgba(122, 162, 247, .08);
-            border-color: var(--accent);
-            color: var(--text);
-        }
-
-        .rel-btn {
-            border-radius: 999px;
-            padding: 4px 10px;
-        }
-
-        .rel-btn.as-chip {
-            background: var(--chip);
-            border-color: var(--border);
-        }
-
-        .rel-x {
-            margin-left: auto;
-            background: transparent;
-            border-color: transparent;
-            color: var(--muted);
-        }
-
-        .rel-x:hover {
-            color: #fff;
-        }
-
-        /* flash a relation row in red when invalid on save */
-        .rel-row.invalid {
-            border-color: var(--danger) !important;
-            box-shadow: 0 0 0 2px rgba(151, 26, 26, 0.45) inset;
-            transition: box-shadow .2s, border-color .2s;
-        }
-
-        /* draggable cue on legend chips (optional) */
-        .chip[draggable="true"] {
-            cursor: grab;
-        }
-
-        .chip[draggable="true"]:active {
-            cursor: grabbing;
-        }
-
-        #rel-overlay path {
-            stroke: rgb(0, 255, 255);
-            stroke-width: 1.5;
-            stroke-dasharray: 4 3;
-            fill: none;
-        }
-
-        #rel-overlay text {
-            fill: #000000;
-            font-size: 12px;
-            font-weight: bold;
-            text-anchor: middle;
-            /* this one *can* be in CSS */
-        }
-
-        #rel-overlay rect {
-            fill: rgba(117, 244, 255, 0.77);
-        }
-
-        .textwrap {
-            position: relative;
-        }
-    </style>
+    <!-- Your CSS moved out of the HTML -->
+    <link rel="stylesheet" href="/css/styles.css" />
 </head>
 
 <body>
     <div class="app">
-        <aside class="sidebar">
-            <div>
-                <h2 style="margin-top:0">Annotations</h2>
-                <p class="empty" id="legend-empty">No annotations yet.</p>
-                <div class="legend" id="legend"></div>
-                <!-- Bulk actions -->
-                <div class="bulk-actions">
-                    <button id="btn-delete-all" class="warn" disabled>Delete all</button>
-                </div>
-            </div>
-            <hr style="border-color:var(--border); margin: 16px 0; border-style: solid; opacity:.6">
-            <div>
-                <h2>Help</h2>
-                <ul style="margin:0; padding-left: 18px; color: var(--muted)">
-                    <li>Click–drag across tokens to select words.</li>
-                    <li>Press <span class="kbd">Esc</span> to clear selection.</li>
-                </ul>
-            </div>
-        </aside>
-
-        <main class="main">
-            <div class="toolbar">
-                <button id="btn-add" disabled>Add Class</button>
-                <button id="btn-clear" class="ghost">Clear Selection</button>
-                <div class="spacer"></div>
-                <button id="btn-prev" class="ghost">Prev</button>
-                <button id="btn-save" class="primary">Save & Next ▶</button>
-            </div>
-            <div class="textwrap">
-                <div class="text" id="text"></div>
-                <!-- Overlay for relation hover lines -->
-                <svg id="rel-overlay" style="position:absolute; inset:0; pointer-events:none; z-index:20;"></svg>
-
-                <p id="empty-annot-note" class="empty" style="display:none; margin:8px 2px 0;">
-                    <em>Text already annotated as EMPTY</em>
-                </p>
-                <!-- Relationships (drop zone + list) -->
-                <div id="rels-wrap" style="margin-top:20px">
-                    <h2
-                        style="margin:0 0 8px; font-size:14px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase;">
-                        Relationships
-                    </h2>
-
-                    <div id="rels-drop" class="rels-dropzone" aria-label="Relationships drop zone">
-                        Drag an entity chip from the left to start
-                    </div>
-
-                    <div id="rels-list" class="rels-list"></div>
-                </div>
-
-            </div>
-
-            <div class="footer" id="status">Ready.</div>
-        </main>
+        <aside class="sidebar" data-include="/partials/sidebar.html"></aside>
+        <main class="main" data-include="/partials/text-area.html"></main>
     </div>
+    <div data-include="/partials/modals.html"></div>
 
-    <!-- Modal for adding/editing class/attributes -->
-    <div class="modal-backdrop" id="modal-bd">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <div class="head" id="modal-title">Add Class</div>
-            <div class="body">
-                <!-- TOP: two columns — left form fields, right rail -->
-                <div class="cols-top">
-                    <!-- LEFT: label + class (each now half the modal because of the grid) -->
-                    <div class="col">
-                        <div class="field">
-                            <label>Label (defaults to selected surface form)</label>
-                            <input id="inp-label" type="text" placeholder="Surface form" />
-                        </div>
-
-                        <div class="field">
-                            <label>Class</label>
-                            <select id="sel-class"></select>
-                        </div>
-                    </div>
-
-                    <!-- RIGHT: find button + suggestions (stacked) -->
-                    <div class="col right-rail">
-                        <div class="field" style="align-items:flex-end">
-                            <label>Genius Search</label>
-                            <button id="btn-sem-find" class="ghost" title="Send search text + label to semantic engine"
-                                style="width: min-content;padding-left: 30px;padding-right: 30px;">✨Find✨</button>
-                        </div>
-
-                        <div class="field" id="sem-suggest-section" style="display:none">
-                            <label>Semantic suggestions</label>
-                            <div id="sem-suggest" class="items"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- BELOW: keep your existing two-column Attributes | Class description block -->
-                <div class="cols">
-                    <div class="col">
-                        <div class="field">
-                            <label>Attributes</label>
-                            <div id="attrs"></div>
-                        </div>
-                    </div>
-
-                    <div class="col desc-panel">
-                        <div class="field">
-                            <label>Class description</label>
-                            <div id="class-desc" class="desc-box"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="foot">
-                <button id="btn-delete" class="warn" style="display:none">Delete</button>
-                <div style="display:flex; gap:8px; margin-left:auto">
-                    <button id="btn-cancel" class="ghost">Cancel</button>
-                    <button id="btn-confirm" class="primary">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- Modal for selecting/editing a relation -->
-    <div class="modal-backdrop" id="rel-modal-bd">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rel-modal-title">
-            <div class="head" id="rel-modal-title">Select Relation</div>
-            <div class="body">
-                <div class="cols-top">
-                    <div class="col">
-                        <div class="field">
-                            <label>Relation</label>
-                            <select id="sel-rel"></select>
-                        </div>
-                    </div>
-
-                    <div class="col right-rail">
-                        <div class="field" style="align-items:flex-end">
-                            <label>Genius Search</label>
-                            <button id="btn-rel-find" class="ghost"
-                                style="width:min-content;padding-left:30px;padding-right:30px;">✨Find✨</button>
-                        </div>
-                        <div class="field" id="rel-suggest-section" style="display:none">
-                            <label>Semantic suggestions</label>
-                            <div id="rel-suggest" class="items"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="cols">
-                    <div class="col">
-                        <div class="field">
-                            <label>Attributes</label>
-                            <div id="rel-attrs"></div>
-                        </div>
-                    </div>
-                    <div class="col desc-panel">
-                        <div class="field">
-                            <label>Relation description</label>
-                            <div id="rel-desc" class="desc-box"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="foot">
-                <button id="btn-rel-delete" class="warn" style="display:none">Remove</button>
-                <div style="display:flex; gap:8px; margin-left:auto">
-                    <button id="btn-rel-cancel" class="ghost">Cancel</button>
-                    <button id="btn-rel-confirm" class="primary">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- Overwrite confirmation modal -->
-    <div class="modal-backdrop" id="overwrite-bd">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="overwrite-title"
-            style="width: min(500px, calc(100% - 32px));">
-            <div class="head" id="overwrite-title">Overwrite existing annotations?</div>
-            <div class="body">
-                <p>
-                    The selected text was already annotated.<br>
-                    Do you want to overwrite? <br>
-                    <small style="color:var(--muted)">This <b>removes all previous entities and relationships</b> and
-                        assigns yours.</small>
-                </p>
-            </div>
-            <div class="foot">
-                <button id="btn-overwrite-cancel" class="warn">Cancel</button>
-                <button id="btn-overwrite-confirm" class="ok">Overwrite</button>
-            </div>
-        </div>
-    </div>
-    <!-- ADD: Delete All confirmation modal -->
-    <div class="modal-backdrop" id="delall-bd">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="delall-title">
-            <div class="head" id="delall-title">Delete all annotations?</div>
-            <div class="body">
-                <p>
-                    This will remove <b>all annotations</b> for the current text in the UI.<br>
-                    (You’ll still need to click <i>Save & Next</i> to persist the empty set.)
-                </p>
-            </div>
-            <div class="foot">
-                <button id="btn-delall-cancel" class="ghost">Cancel</button>
-                <button id="btn-delall-confirm" class="warn">Delete All</button>
-            </div>
-        </div>
-    </div>
-
-
-    <script>
+    <script type="module">
+        import { includePartials } from '/lib/includes.js';
+        // 1) Load all HTML partials
+        await includePartials();
         // ============== Utility ==============
         const $ = (sel, root = document) => root.querySelector(sel);
         const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -1180,59 +363,130 @@
 
         function entityById(id) { return state.annotations.find(a => a.id === id); }
 
-        function relationAllowedFor(subjectClass, objectClass, relName) {
+        // ADD: undirected relation helpers
+        function relationAllowedBidirectional(leftClass, rightClass, relName) {
             const spec = state.relationsMeta[relName];
             if (!spec) return false;
-            const subjOk = spec.subject?.includes(subjectClass);
-            const objOk = objectClass ? spec.object?.includes(objectClass) : true;
-            return !!(subjOk && objOk);
+
+            if (!leftClass && !rightClass) return true; // degenerate, allow all
+
+            // Only one participant present: class may be on either side
+            if (leftClass && !rightClass) {
+                return (spec.subject?.includes(leftClass) || spec.object?.includes(leftClass));
+            }
+            if (!leftClass && rightClass) {
+                return (spec.subject?.includes(rightClass) || spec.object?.includes(rightClass));
+            }
+
+            // Both present: match (left→right) OR (right→left)
+            const fwd = spec.subject?.includes(leftClass) && spec.object?.includes(rightClass);
+            const rev = spec.subject?.includes(rightClass) && spec.object?.includes(leftClass);
+            return !!(fwd || rev);
         }
 
-        function getAllowedRelationNames(subjectClass, objectClass = null) {
+        // ADD: which orientation matches this pair? (when both present)
+        function relationOrientationForPair(relName, leftClass, rightClass) {
+            const spec = state.relationsMeta[relName];
+            if (!spec || !leftClass || !rightClass) return null;
+            const fwd = spec.subject?.includes(leftClass) && spec.object?.includes(rightClass);
+            const rev = spec.subject?.includes(rightClass) && spec.object?.includes(leftClass);
+            if (fwd && !rev) return 'forward';
+            if (rev && !fwd) return 'reverse';
+            if (fwd && rev) return 'both';
+            return null;
+        }
+
+        // ADD: with a single entity present, which role does the relation require?
+        function firstEntityRoleFor(relName, klass) {
+            const spec = state.relationsMeta[relName];
+            if (!spec) return null;
+            const subjOk = spec.subject?.includes(klass);
+            const objOk = spec.object?.includes(klass);
+            if (subjOk && !objOk) return 'subject';
+            if (!subjOk && objOk) return 'object';
+            if (subjOk && objOk) return 'either';
+            return null;
+        }
+
+        // REPLACE: old getAllowedRelationNames / relationAllowedFor
+        function getAllowedRelationNames(leftClass, rightClass = null) {
             const out = [];
-            for (const [name, spec] of Object.entries(state.relationsMeta)) {
-                if (relationAllowedFor(subjectClass, objectClass, name)) out.push(name);
+            for (const name of Object.keys(state.relationsMeta)) {
+                if (relationAllowedBidirectional(leftClass, rightClass, name)) out.push(name);
             }
             return out;
         }
 
-        function relRowDOM(rel) {
-            const subj = entityById(rel.subject);
-            const obj = rel.object ? entityById(rel.object) : null;
+        function swapRelParticipants(rel) {
+            const tmp = rel.subject;
+            rel.subject = rel.object;
+            rel.object = tmp;
+        }
 
-            const subjColors = classColor(subj.class);
-            const subjChip = el('span', {
-                className: 'rel-chip',
-                style: `background:${subjColors.chip}; border-color:${subjColors.border}`
-            }, [`${subj.label} (${subj.class})`]);
+        // ADD: small row error helper
+        function showRelError(rowEl, msg) {
+            const err = rowEl.querySelector('.rel-error');
+            if (!err) return;
+            err.textContent = msg;
+            err.classList.add('show');
+            setTimeout(() => err && err.classList.remove('show'), 5000);
+        }
+
+        function relRowDOM(rel) {
+            const leftEnt = rel.subject ? entityById(rel.subject) : null;
+            const rightEnt = rel.object ? entityById(rel.object) : null;
+
+            // chip maker
+            const makeChip = (ent) => {
+                const colors = classColor(ent.class);
+                return el('span', {
+                    className: 'rel-chip',
+                    style: `background:${colors.chip}; border-color:${colors.border}`
+                }, [`${ent.label} (${ent.class})`]);
+            };
+
+            // generic placeholder w/ validation against the chosen relation, if any
+            const makePlaceholder = (side) => {
+                const label = side === 'subject' ? 'drop subject here' : 'drop object here';
+                const ph = el('span', { className: 'rel-placeholder', textContent: label });
+
+                ph.addEventListener('dragover', (e) => { e.preventDefault(); ph.classList.add('dragover'); });
+                ph.addEventListener('dragleave', () => ph.classList.remove('dragover'));
+                ph.addEventListener('drop', (e) => {
+                    e.preventDefault(); ph.classList.remove('dragover');
+                    const entId = e.dataTransfer.getData('text/plain');
+                    if (!entId) return;
+                    if ((side === 'subject' && rel.object === entId) || (side === 'object' && rel.subject === entId)) {
+                        showRelError(row, 'cannot use the same entity on both sides');
+                        return;
+                    }
+                    const ent = entityById(entId);
+                    if (!ent) return;
+
+                    // If a relation is already selected, enforce role-level constraint
+                    if (rel.predicate) {
+                        const spec = state.relationsMeta[rel.predicate];
+                        const ok = side === 'subject' ? spec.subject?.includes(ent.class) : spec.object?.includes(ent.class);
+                        if (!ok) {
+                            showRelError(row, 'entity type not allowed in this role for this relation');
+                            return; // block the placement
+                        }
+                    }
+
+                    if (side === 'subject') rel.subject = entId; else rel.object = entId;
+
+                    const rowNode = document.querySelector(`.rel-row[data-rel-id="${rel.id}"]`);
+                    if (rowNode) rowNode.classList.remove('invalid');
+                    ui.dirty = true; updatePrimaryButton();
+                    renderRelationships();
+                });
+
+                return ph;
+            };
 
             const relBtnLabel = rel.predicate ? rel.predicate : 'Select relation';
             const relBtn = el('button', { className: 'rel-btn ' + (rel.predicate ? 'as-chip' : ''), textContent: relBtnLabel });
             relBtn.onclick = () => openRelModal(rel.id);
-
-            let objNode;
-            if (obj) {
-                const objColors = classColor(obj.class);
-                objNode = el('span', {
-                    className: 'rel-chip',
-                    style: `background:${objColors.chip}; border-color:${objColors.border}`
-                }, [`${obj.label} (${obj.class})`]);
-            } else {
-                objNode = el('span', { className: 'rel-placeholder', textContent: 'drop object here' });
-                // droppable placeholder for object
-                objNode.addEventListener('dragover', (e) => { e.preventDefault(); objNode.classList.add('dragover'); });
-                objNode.addEventListener('dragleave', () => objNode.classList.remove('dragover'));
-                objNode.addEventListener('drop', (e) => {
-                    e.preventDefault(); objNode.classList.remove('dragover');
-                    const entId = e.dataTransfer.getData('text/plain');
-                    if (!entId) return;
-                    rel.object = entId;
-                    const row = document.querySelector(`.rel-row[data-rel-id="${rel.id}"]`);
-                    if (row) row.classList.remove('invalid');
-                    ui.dirty = true; updatePrimaryButton();
-                    renderRelationships();
-                });
-            }
 
             const x = el('button', { className: 'rel-x', textContent: '✕', title: 'Remove relation' });
             x.onclick = () => {
@@ -1241,10 +495,23 @@
                 renderRelationships();
             };
 
-            return el('div', { className: 'rel-row', dataset: { relId: rel.id } }, [
-                subjChip, el('span', { textContent: ' — ' }), relBtn, el('span', { textContent: ' — ' }), objNode, x
-            ]);
+            const row = el('div', { className: 'rel-row', dataset: { relId: rel.id } });
 
+            const leftNode = leftEnt ? makeChip(leftEnt) : makePlaceholder('subject');
+            const rightNode = rightEnt ? makeChip(rightEnt) : makePlaceholder('object');
+
+            // Add a spot for inline errors
+            const err = el('span', { className: 'rel-error', 'aria-live': 'polite' }, []);
+
+            row.appendChild(leftNode);
+            row.appendChild(el('span', { textContent: ' — ' }));
+            row.appendChild(relBtn);
+            row.appendChild(el('span', { textContent: ' — ' }));
+            row.appendChild(rightNode);
+            row.appendChild(x);
+            row.appendChild(err);
+
+            return row;
         }
 
         function renderRelationships() {
@@ -1423,7 +690,7 @@
             const bd = $('#modal-bd');
             bd.style.display = 'flex';
 
-            const title = (mode === 'edit') ? 'Edit Annotation' : 'Add Class';
+            const title = (mode === 'edit') ? 'Edit Annotation' : 'Add Entity';
             $('#modal-title').textContent = title;
 
             // Prefill label
@@ -1518,16 +785,17 @@
             const rel = state.relations.find(r => r.id === relId);
             if (!rel) return;
 
-            const subj = entityById(rel.subject);
-            const obj = rel.object ? entityById(rel.object) : null;
+            const left = rel.subject ? entityById(rel.subject) : null;
+            const right = rel.object ? entityById(rel.object) : null;
 
             $('#rel-modal-bd').style.display = 'flex';
-            $('#rel-modal-title').textContent = `Select Relation (${subj.class}${obj ? ' → ' + obj.class : ''})`;
+            const title = `Select Relation (${left ? left.class : '?'} ↔ ${right ? right.class : '?'})`;
+            $('#rel-modal-title').textContent = title;
 
-            // (Re)build select with allowed relations
+            // (Re)build select with allowed relations (left/right can be null)
             const sel = $('#sel-rel');
             sel.innerHTML = '';
-            const allowed = getAllowedRelationNames(subj.class, obj?.class);
+            const allowed = getAllowedRelationNames(left?.class || null, right?.class || null);
             allowed.forEach(name => sel.appendChild(el('option', { value: name }, [name])));
 
             if (relChoices) { relChoices.destroy(); relChoices = null; }
@@ -1535,13 +803,12 @@
                 searchEnabled: true, shouldSort: false, itemSelectText: '', position: 'bottom', allowHTML: false
             });
 
-            // preselect if already set
+            // preselect if already set and still allowed
             if (rel.predicate && allowed.includes(rel.predicate)) {
                 relChoices.setChoiceByValue(rel.predicate);
                 sel.value = rel.predicate;
             }
 
-            // attrs + desc
             renderRelAttrFields(sel.value, rel.attrs || {});
             renderRelDescription(sel.value);
 
@@ -1550,14 +817,12 @@
                 renderRelDescription(sel.value);
             });
 
-            // enable/disable Find button based on backend readiness
             API.semanticStatus('relation').then(s => {
                 const b = $('#btn-rel-find');
                 b.disabled = !(s.ready && s.has_embedder && s.size > 0);
                 b.title = b.disabled ? 'Semantic index not ready' : 'Semantic search relations';
             });
 
-            // delete inside modal removes this relation row
             $('#btn-rel-delete').style.display = 'inline-flex';
             $('#btn-rel-delete').onclick = () => {
                 state.relations = state.relations.filter(r => r.id !== rel.id);
@@ -1566,18 +831,41 @@
                 renderRelationships();
             };
         }
+
         function closeRelModal() { $('#rel-modal-bd').style.display = 'none'; }
 
         $('#btn-rel-cancel').onclick = closeRelModal;
         $('#btn-rel-confirm').onclick = () => {
             const rel = state.relations.find(r => r.id === ui.relEditingId);
             if (!rel) return;
+
             const name = $('#sel-rel').value;
             rel.predicate = name;
-            const row = document.querySelector(`.rel-row[data-rel-id="${rel.id}"]`);
-            if (row) row.classList.remove('invalid');
 
-            // collect relation attributes
+            // Auto-place or auto-swap based on allowed orientation
+            const left = rel.subject ? entityById(rel.subject) : null;
+            const right = rel.object ? entityById(rel.object) : null;
+
+            if (left && right) {
+                const ori = relationOrientationForPair(name, left.class, right.class);
+                if (ori === 'reverse') swapRelParticipants(rel); // auto-swap
+            } else if (left && !right) {
+                const role = firstEntityRoleFor(name, left.class);
+                if (role === 'object') {
+                    // put current chip on the right, open left placeholder
+                    rel.object = rel.subject;
+                    rel.subject = null;
+                }
+            } else if (!left && right) {
+                // rare but supported (only right present)
+                const role = firstEntityRoleFor(name, right.class);
+                if (role === 'subject') {
+                    rel.subject = rel.object;
+                    rel.object = null;
+                }
+            }
+
+            // Collect relation attributes
             const spec = state.relationsMeta[name] || { attributes: {} };
             const out = {};
             for (const [attr, aspec] of Object.entries(spec.attributes || {})) {
@@ -1589,6 +877,9 @@
                 else out[attr] = raw;
             }
             rel.attrs = out;
+
+            const row = document.querySelector(`.rel-row[data-rel-id="${rel.id}"]`);
+            if (row) row.classList.remove('invalid');
 
             ui.dirty = true; updatePrimaryButton();
             renderRelationships();
@@ -1661,22 +952,23 @@
         $('#btn-rel-find').onclick = async () => {
             const rel = state.relations.find(r => r.id === ui.relEditingId);
             if (!rel) return;
-            const subj = entityById(rel.subject);
-            const obj = rel.object ? entityById(rel.object) : null;
+            const left = rel.subject ? entityById(rel.subject) : null;
+            const right = rel.object ? entityById(rel.object) : null;
             const query = getRelChoicesSearchTerm();
 
             try {
                 $('#btn-rel-find').classList.add('loading');
+                // Let backend return broad suggestions; we filter undirected locally
                 const res = await API.semanticSuggest({
                     kind: 'relation',
                     query,
                     top_k: 8,
                     threshold: 0.2,
-                    subject_class: subj.class,
-                    object_class: obj?.class || null
+                    subject_class: null,
+                    object_class: null
                 });
-                // Front-end safety filter (in case backend has wider set):
-                const filtered = res.items.filter(it => relationAllowedFor(subj.class, obj?.class, it.class_name));
+                const allowedNames = new Set(getAllowedRelationNames(left?.class || null, right?.class || null));
+                const filtered = res.items.filter(it => allowedNames.has(it.class_name));
                 renderRelSuggestions(filtered);
             } catch (e) {
                 alert('Semantic search failed: ' + e.message);
@@ -1811,20 +1103,12 @@
             }
         };
 
-        // ADD: Press Enter in the Choices search input triggers Find
-        document.addEventListener('keydown', (ev) => {
-            const active = document.activeElement;
-            if (ev.key === 'Enter' && active && active.classList.contains('choices__input--cloned')) {
-                ev.preventDefault();
-                const btn = $('#btn-sem-find');
-                if (!btn.disabled) btn.click();
-            }
-        });
-
         // ADD: on openModal, clear previous suggestions
         function clearSemanticSuggestions() {
             $('#sem-suggest').innerHTML = '';
             $('#sem-suggest-section').style.display = 'none';
+            // automatically suggest now (call find button)
+            $('#btn-sem-find').click();
         }
 
         $('#btn-save').onclick = async () => {

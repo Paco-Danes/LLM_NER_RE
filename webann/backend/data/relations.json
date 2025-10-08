@@ -1,5 +1,5 @@
 {
-    "AnatomicalStructureToFunction": {
+    "AnatomicalStructFunctionAssociation": {
         "description": "A relation between an anatomical structure and a function it performs or is associated with.",
         "subject": [
             "BrainRegion",
@@ -9,7 +9,7 @@
             "CNSFunction"
         ]
     },
-    "AnatomicalStructureToDisease": {
+    "AnatomicalStructDiseaseAssociation": {
         "description": "A relation between an anatomical structure and a disease that affects it.",
         "subject": [
             "BrainRegion",
@@ -17,6 +17,15 @@
         ],
         "object": [
             "Disease"
+        ]
+    },
+    "ProteinPathwayParticipation": {
+        "description": "A relation between a protein and a biological pathway it is involved in.",
+        "subject": [
+            "Protein"
+        ],
+        "object": [
+            "BiologicalPathway"
         ]
     }
 }

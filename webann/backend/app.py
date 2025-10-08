@@ -128,15 +128,16 @@ def _load_rel_index():
 def _load_embedder():
     try:
         from sentence_transformers import SentenceTransformer
-        return SentenceTransformer(EMBED_MODEL_NAME, device="cpu")
+        return SentenceTransformer(EMBED_MODEL_NAME)
     except Exception as e:
+        print(f"Failed to load embedder model {EMBED_MODEL_NAME}")
         return None
 
 def _encode_query(texts: List[str]):
     model = _load_embedder()
     if model is None:
         raise HTTPException(501, "Embedding model not installed on server.")
-    # BGE prefers 'query:' prefix
+    #BGE_prefix = "Represent this sentence for searching relevant passages:"
     texts = [("query: " + t.strip()) if t else "query:" for t in texts]
     vecs = model.encode(texts, normalize_embeddings=True)
     return vecs.astype("float32")
@@ -181,7 +182,6 @@ async def semantic_suggest(payload: SuggestIn):
 
     query = " ".join([payload.query or "", payload.label or ""]).strip()
     if not query:
-        print('FUCCCCCCKKKK')
         return {"ready": True, "total": len(idx["labels"]), "items": []}
 
     qvec = _encode_query([query])[0]

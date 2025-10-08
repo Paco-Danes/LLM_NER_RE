@@ -1,14 +1,19 @@
 # scripts/build_class_index.py
-import argparse, json, os
+import argparse, json
 from pathlib import Path
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
 def main():
+    ROOT = Path(__file__).resolve().parents[1]   # repo root
+    DATA = ROOT / "backend" / "data"
+    default_classes = DATA / "classes.json"
+    default_out_ind = DATA / "class_index.npz"
+    default_out_meta= DATA / "class_index_meta.json"
     p = argparse.ArgumentParser()
-    p.add_argument("--classes", default=str(Path(__file__).parents[1] / "backend" / "data" / "classes.json"))
-    p.add_argument("--out", default=str(Path(__file__).parents[1] / "backend" / "data" / "class_index.npz"))
-    p.add_argument("--meta_out", default=str(Path(__file__).parents[1] / "backend" / "data" / "class_index_meta.json"))
+    p.add_argument("--classes", default=default_classes)
+    p.add_argument("--out", default=default_out_ind)
+    p.add_argument("--meta_out", default=default_out_meta)
     p.add_argument("--model", default="BAAI/bge-small-en-v1.5")
     p.add_argument("--batch_size", type=int, default=16)
     args = p.parse_args()
@@ -22,11 +27,11 @@ def main():
         blob = f"{name}. {desc}".strip()
         if aliases:
             blob += ". Aliases: " + ", ".join(aliases)
-        passages.append("passage: " + blob)
+        passages.append(blob)
         names.append(name)
         meta[name] = {"description": desc, "aliases": aliases}
 
-    model = SentenceTransformer(args.model, device="cpu")
+    model = SentenceTransformer(args.model) # fastest device should be auto-detected
     emb = model.encode(passages, batch_size=args.batch_size, normalize_embeddings=True, show_progress_bar=True)
     emb = emb.astype("float32")
 

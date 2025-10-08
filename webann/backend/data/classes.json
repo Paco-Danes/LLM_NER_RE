@@ -112,7 +112,7 @@
         "attributes": {}
     },
     "BiologicalProcess": {
-        "description": "One or more causally connected executions of molecular functions.\nExamples: \"cell cycle\", \"apoptosis\", \"DNA repair\", \"signal transduction\", \"angiogenesis\", \"autophagy\", \"immune response\".",
+        "description": "A coordinated series of molecular, cellular, or physiological events carried out by one or more living organisms to achieve a specific biological function or outcome.\nExamples: \"direct/indirect neurogenesis\", \"cell cycle\", \"apoptosis\", \"DNA repair\", \"signal transduction\", \"angiogenesis\", \"autophagy\", \"immune response\".",
         "attributes": {}
     },
     "Bacterium": {

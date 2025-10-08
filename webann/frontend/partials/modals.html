@@ -1,0 +1,148 @@
+<!-- Modal for adding/editing class/attributes -->
+<div class="modal-backdrop" id="modal-bd">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="head" id="modal-title">Add Entity</div>
+        <div class="body">
+            <!-- TOP: two columns — left form fields, right rail -->
+            <div class="cols-top">
+                <!-- LEFT: label + class (each now half the modal because of the grid) -->
+                <div class="col">
+                    <div class="field">
+                        <label>Label (defaults to selected surface form)</label>
+                        <input id="inp-label" type="text" placeholder="Surface form" />
+                    </div>
+
+                    <div class="field">
+                        <label>Class</label>
+                        <select id="sel-class"></select>
+                    </div>
+                </div>
+
+                <!-- RIGHT: find button + suggestions (stacked) -->
+                <div class="col right-rail">
+                    <div class="field" style="align-items:flex-end">
+                        <label>Genius Search</label>
+                        <button id="btn-sem-find" class="ghost" title="Send search text + label to semantic engine"
+                            style="width: min-content;padding-left: 30px;padding-right: 30px;">✨Find✨</button>
+                    </div>
+
+                    <div class="field" id="sem-suggest-section" style="display:none">
+                        <label>Semantic suggestions</label>
+                        <div id="sem-suggest" class="items"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BELOW: keep your existing two-column Attributes | Class description block -->
+            <div class="cols">
+                <div class="col">
+                    <div class="field">
+                        <label>Attributes</label>
+                        <div id="attrs"></div>
+                    </div>
+                </div>
+
+                <div class="col desc-panel">
+                    <div class="field">
+                        <label>Class description</label>
+                        <div id="class-desc" class="desc-box"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="foot">
+            <button id="btn-delete" class="warn" style="display:none">Delete</button>
+            <div style="display:flex; gap:8px; margin-left:auto">
+                <button id="btn-cancel" class="ghost">Cancel</button>
+                <button id="btn-confirm" class="primary">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal for selecting/editing a relation -->
+<div class="modal-backdrop" id="rel-modal-bd">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rel-modal-title">
+        <div class="head" id="rel-modal-title">Select Relation</div>
+        <div class="body">
+            <div class="cols-top">
+                <div class="col">
+                    <div class="field">
+                        <label>Relation</label>
+                        <select id="sel-rel"></select>
+                    </div>
+                </div>
+
+                <div class="col right-rail">
+                    <div class="field" style="align-items:flex-end">
+                        <label>Genius Search</label>
+                        <button id="btn-rel-find" class="ghost"
+                            style="width:min-content;padding-left:30px;padding-right:30px;">✨Find✨</button>
+                    </div>
+                    <div class="field" id="rel-suggest-section" style="display:none">
+                        <label>Semantic suggestions</label>
+                        <div id="rel-suggest" class="items"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cols">
+                <div class="col">
+                    <div class="field">
+                        <label>Attributes</label>
+                        <div id="rel-attrs"></div>
+                    </div>
+                </div>
+                <div class="col desc-panel">
+                    <div class="field">
+                        <label>Relation description</label>
+                        <div id="rel-desc" class="desc-box"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="foot">
+            <button id="btn-rel-delete" class="warn" style="display:none">Remove</button>
+            <div style="display:flex; gap:8px; margin-left:auto">
+                <button id="btn-rel-cancel" class="ghost">Cancel</button>
+                <button id="btn-rel-confirm" class="primary">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Overwrite confirmation modal -->
+<div class="modal-backdrop" id="overwrite-bd">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="overwrite-title"
+        style="width: min(500px, calc(100% - 32px));">
+        <div class="head" id="overwrite-title">Overwrite existing annotations?</div>
+        <div class="body">
+            <p>
+                The selected text was already annotated.<br>
+                Do you want to overwrite? <br>
+                <small style="color:var(--muted)">This <b>removes all previous entities and relationships</b> and
+                    assigns yours.</small>
+            </p>
+        </div>
+        <div class="foot">
+            <button id="btn-overwrite-cancel" class="warn">Cancel</button>
+            <button id="btn-overwrite-confirm" class="ok">Overwrite</button>
+        </div>
+    </div>
+</div>
+<!-- ADD: Delete All confirmation modal -->
+<div class="modal-backdrop" id="delall-bd">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="delall-title"
+        style="width: min(500px, calc(100% - 32px));">
+        <div class=" head" id="delall-title">Delete all annotations?</div>
+        <div class="body">
+            <p>
+                This will remove <b>all annotations</b> for the current text in the UI.<br>
+                (You’ll still need to click <i>Save & Next</i> to persist the empty set.)
+            </p>
+        </div>
+        <div class="foot">
+            <button id="btn-delall-cancel" class="ghost">Cancel</button>
+            <button id="btn-delall-confirm" class="warn">Delete All</button>
+        </div>
+    </div>
+</div>

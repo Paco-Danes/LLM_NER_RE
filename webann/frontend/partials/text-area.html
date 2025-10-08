@@ -1,0 +1,27 @@
+<div class="toolbar">
+    <button id="btn-add" disabled>Add Entity</button>
+    <button id="btn-clear" class="ghost">Clear Selection</button>
+    <div class="spacer"></div>
+    <button id="btn-prev" class="ghost">Prev</button>
+    <button id="btn-save" class="primary">Save & Next ▶</button>
+</div>
+
+<div class="textwrap">
+    <div class="text" id="text"></div>
+    <svg id="rel-overlay" style="position:absolute; inset:0; pointer-events:none; z-index:20;"></svg>
+    <p id="empty-annot-note" class="empty" style="display:none; margin:8px 2px 0;">
+        <em>Text already annotated as EMPTY</em>
+    </p>
+
+    <div id="rels-wrap" style="margin-top:20px">
+        <h2 style="margin:0 0 8px; font-size:14px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase;">
+            Relationships
+        </h2>
+        <div id="rels-drop" class="rels-dropzone" aria-label="Relationships drop zone">
+            Drag an entity chip from the left to start
+        </div>
+        <div id="rels-list" class="rels-list"></div>
+    </div>
+</div>
+
+<div class="footer" id="status">Ready.</div>

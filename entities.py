@@ -130,8 +130,8 @@ class BrainRegion(NamedEntity):
 
 class BiologicalProcess(NamedEntity):
     """
-    One or more causally connected executions of molecular functions.
-    Examples: "cell cycle", "apoptosis", "DNA repair", "signal transduction", "angiogenesis", "autophagy", "immune response".
+    A coordinated series of molecular, cellular, or physiological events carried out by one or more living organisms to achieve a specific biological function or outcome.
+    Examples:  "direct/indirect neurogenesis", "cell cycle", "apoptosis", "DNA repair", "signal transduction", "angiogenesis", "autophagy", "immune response".
     """
 
 class Bacterium(NamedEntity):
@@ -334,7 +334,7 @@ def export_entities_json(filepath: str = "classes.json") -> None:
             else:
                 entry = {"nullable": bool(nullable)}
                 if type_name is not None:
-                    entry["type"] = type_name
+                    entry["type"] = type_name # type: ignore
                 attrs[fname] = entry
 
         out[cls.__name__] = {"description": desc, "attributes": attrs}
