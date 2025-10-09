@@ -596,6 +596,7 @@
             const { startIdx, endIdx } = state.selection;
             const hasSel = startIdx !== null && endIdx !== null;
             $('#btn-add').disabled = !hasSel;
+            $('#btn-add').style = hasSel ? 'border-color: #7aa2f791' : '';
         }
 
         function updateSelectionHighlight() {
@@ -612,6 +613,7 @@
             state.selection.startIdx = state.selection.endIdx = null;
             updateSelectionHighlight();
             $('#btn-add').disabled = true;
+            $('#btn-add').style = '';
         }
 
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') clearSelection(); });
