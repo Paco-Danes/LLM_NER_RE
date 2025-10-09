@@ -5,8 +5,9 @@ export async function includePartials(root = document) {
         const res = await fetch(url, { credentials: 'same-origin' });
         if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`);
         el.innerHTML = await res.text();
-        // Support nested includes (optional)
         const nested = el.querySelector('[data-include]');
         if (nested) await includePartials(el);
     }));
+    // NEW: let the app know partials are ready so it can bind handlers
+    document.dispatchEvent(new CustomEvent('partials:loaded'));
 }

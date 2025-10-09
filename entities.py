@@ -1,13 +1,95 @@
 from pydantic import BaseModel, Field
-from typing import Literal, Optional, get_type_hints, Union
-import inspect
-import json
+from typing import Literal, Optional, Union
 
 class NamedEntity(BaseModel):
     label: str = Field(..., description="")
     def __init_subclass__(cls):
         super().__init_subclass__() # call BaseModel's __init_subclass__
         cls.model_fields["label"].description = f"Surface form (name) of the {cls.__name__} as it appears in the text."
+
+# function to retrieve entity list that includes all classes. If multiple inheritance is used, recursively get all subclasses
+def Entity_Collector(root = NamedEntity, recursion=False):
+    if recursion:
+        subclasses = set(root.__subclasses__())
+        for sub in root.__subclasses__():
+            subclasses.update(Entity_Collector(sub, recursion=True))
+        return list(subclasses)
+
+    return [cls for cls in NamedEntity.__subclasses__()]
+
+def export_entities_json(filepath: str = "classes.json") -> None:
+    """
+    Export a simple JSON schema of direct subclasses of NamedEntity.
+    - Skips NamedEntity itself and the inherited 'label' field.
+    - Uses class __doc__ verbatim as 'description'.
+    - Emits 'enum' for Literal[...] (excluding None), and 'nullable' if None is allowed.
+    - Maps primitive types (str, int, float, bool) to 'type'.
+    """
+    import json
+    from typing import get_origin, get_args, Union
+
+    out = {}
+
+    for cls in NamedEntity.__subclasses__():
+        desc = cls.__doc__ or ""
+        # remove any multiple whitespace but keep newlines
+        desc = "\n".join(" ".join(line.split()) for line in desc.splitlines()).strip()
+        attrs = {}
+
+        for fname, field in getattr(cls, "model_fields", {}).items():
+            if fname == "label":
+                continue
+
+            ann = field.annotation
+            nullable = False
+            enum_vals = None
+            type_name = None
+
+            # Handle Optional/Union[... , None]
+            origin = get_origin(ann)
+            args = list(get_args(ann)) if origin is not None else []
+
+            # If Literal directly
+            if str(origin).endswith("Literal"):
+                enum_vals = [v for v in args if v is not None]
+                nullable = any(v is None for v in args)
+            else:
+                # Unwrap Optional/Union with None (PEP 604 or typing.Union)
+                if origin in (Union, getattr(__import__("types"), "UnionType", Union)):
+                    non_none = [a for a in args if a is not type(None)]
+                    nullable = len(non_none) < len(args)
+                    ann = non_none[0] if len(non_none) == 1 else ann
+                    origin = get_origin(ann)
+                    args = list(get_args(ann)) if origin is not None else []
+
+                # Literal after unwrapping?
+                if str(origin).endswith("Literal"):
+                    enum_vals = [v for v in args if v is not None]
+                    nullable = nullable or any(v is None for v in args)
+                else:
+                    # Primitive mapping
+                    if ann in (str,):
+                        type_name = "string"
+                    elif ann in (int,):
+                        type_name = "integer"
+                    elif ann in (float,):
+                        type_name = "number"
+                    elif ann in (bool,):
+                        type_name = "boolean"
+
+            # Build field entry
+            if enum_vals is not None:
+                attrs[fname] = {"enum": enum_vals, "nullable": bool(nullable)}
+            else:
+                entry = {"nullable": bool(nullable)}
+                if type_name is not None:
+                    entry["type"] = type_name # type: ignore
+                attrs[fname] = entry
+
+        out[cls.__name__] = {"description": desc, "attributes": attrs}
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(out, f, indent=4, ensure_ascii=False)
 
 class Protein(NamedEntity):
     """
@@ -124,7 +206,7 @@ class CellularComponent(NamedEntity):
 
 class BrainRegion(NamedEntity):
     """
-    A distinct anatomical region of the brain, involved in specific neural functions or processes.
+    A distinct anatomical region or structure of the brain, involved in specific neural functions or processes.
     Examples: "hippocampus", "amygdala", "cerebral cortex", "hindbrain", "midbrain", "thalamus", "cerebellum".
     """
 
@@ -257,90 +339,6 @@ class HumanDevelopmentalTimepoint(NamedEntity): # is-a LifeStage biolink
 
     start_value: Optional[float] = Field(None, description="Numeric value (or start if range) on the selected scale (e.g., 20 for GW20, 13 for CS13, 8 for 8 PCW, 3 for DOL3, or start of a range).")
     end_value: Optional[float] = Field(None, description="If range, end value on the same scale (e.g., 22 for GW20–GW22, 10 for PCW8–PCW10).")
-
-# function to retrieve entity list that includes all classes. If multiple inheritance is used, recursively get all subclasses
-def Entity_Collector(root = NamedEntity, recursion=False):
-    if recursion:
-        subclasses = set(root.__subclasses__())
-        for sub in root.__subclasses__():
-            subclasses.update(Entity_Collector(sub, recursion=True))
-        return list(subclasses)
-
-    return [cls for cls in NamedEntity.__subclasses__()]
-
-def export_entities_json(filepath: str = "classes.json") -> None:
-    """
-    Export a simple JSON schema of direct subclasses of NamedEntity.
-    - Skips NamedEntity itself and the inherited 'label' field.
-    - Uses class __doc__ verbatim as 'description'.
-    - Emits 'enum' for Literal[...] (excluding None), and 'nullable' if None is allowed.
-    - Maps primitive types (str, int, float, bool) to 'type'.
-    """
-    import json
-    from typing import get_origin, get_args, Union
-
-    out = {}
-
-    for cls in NamedEntity.__subclasses__():
-        desc = cls.__doc__ or ""
-        # remove any multiple whitespace but keep newlines
-        desc = "\n".join(" ".join(line.split()) for line in desc.splitlines()).strip()
-        attrs = {}
-
-        for fname, field in getattr(cls, "model_fields", {}).items():
-            if fname == "label":
-                continue
-
-            ann = field.annotation
-            nullable = False
-            enum_vals = None
-            type_name = None
-
-            # Handle Optional/Union[... , None]
-            origin = get_origin(ann)
-            args = list(get_args(ann)) if origin is not None else []
-
-            # If Literal directly
-            if str(origin).endswith("Literal"):
-                enum_vals = [v for v in args if v is not None]
-                nullable = any(v is None for v in args)
-            else:
-                # Unwrap Optional/Union with None (PEP 604 or typing.Union)
-                if origin in (Union, getattr(__import__("types"), "UnionType", Union)):
-                    non_none = [a for a in args if a is not type(None)]
-                    nullable = len(non_none) < len(args)
-                    ann = non_none[0] if len(non_none) == 1 else ann
-                    origin = get_origin(ann)
-                    args = list(get_args(ann)) if origin is not None else []
-
-                # Literal after unwrapping?
-                if str(origin).endswith("Literal"):
-                    enum_vals = [v for v in args if v is not None]
-                    nullable = nullable or any(v is None for v in args)
-                else:
-                    # Primitive mapping
-                    if ann in (str,):
-                        type_name = "string"
-                    elif ann in (int,):
-                        type_name = "integer"
-                    elif ann in (float,):
-                        type_name = "number"
-                    elif ann in (bool,):
-                        type_name = "boolean"
-
-            # Build field entry
-            if enum_vals is not None:
-                attrs[fname] = {"enum": enum_vals, "nullable": bool(nullable)}
-            else:
-                entry = {"nullable": bool(nullable)}
-                if type_name is not None:
-                    entry["type"] = type_name # type: ignore
-                attrs[fname] = entry
-
-        out[cls.__name__] = {"description": desc, "attributes": attrs}
-
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(out, f, indent=4, ensure_ascii=False)
 
 if __name__ == "__main__":
     print(f"Exported entity schema")

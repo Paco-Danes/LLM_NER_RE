@@ -1,0 +1,40 @@
+<div class="toolbar">
+    <button id="btn-propose-back" class="ghost">← Back to Annotation</button>
+    <div class="spacer"></div>
+    <button id="btn-propose-save" class="primary">Save Class</button>
+</div>
+
+<div class="proposewrap">
+    <div class="field">
+        <label>New Class Name</label>
+        <input id="pc-name" type="text" placeholder="BrainRegion" />
+        <small>Use CamelCase</small>
+    </div>
+
+    <div class="field">
+        <label>Description (docstring)</label>
+        <textarea id="pc-desc" rows="8" placeholder='A distinct anatomical region or structure of the brain, involved in specific neural functions or processes.
+Examples: "hippocampus", "amygdala", "cerebral cortex", "hindbrain", "midbrain", "thalamus", "cerebellum".'></textarea>
+    </div>
+
+    <div class="field">
+        <label>Attributes / Fields</label>
+
+        <div id="pc-attrs">
+            <div class="attr-head">
+                <span>Name</span>
+                <span>Type</span>
+                <span>Optional?</span>
+                <span>Literal values</span>
+                <span>Description</span>
+                <span></span>
+            </div>
+
+            <div id="pc-attr-list"></div>
+
+            <button type="button" id="pc-attr-add" class="ghost">+ Add attribute</button>
+        </div>
+    </div>
+</div>
+
+<div class="footer" id="propose-status">Fill out the class and click Save.</div>

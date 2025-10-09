@@ -160,6 +160,16 @@
                 if (!r.ok) throw new Error(await r.text());
                 return r.json();
             },
+            // NEW: propose a class -> backend appends to proposed_classes.py
+            async proposeClass(payload) {
+                const r = await fetch(`${API_BASE}/api/proposed-classes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!r.ok) throw new Error(await r.text());
+                return r.json();
+            },
         };
 
         // ============== Rendering ==============
@@ -1336,6 +1346,173 @@
             updatePrimaryButton();
         }
 
+        // ---------- Propose Class: overlay + route (#/propose-class) ----------
+
+        function ensureProposeOverlay() {
+            let overlay = $('#propose-overlay');
+            if (!overlay) {
+                overlay = el('div', { id: 'propose-overlay', className: 'page-overlay', style: 'display:none' });
+                $('.main').appendChild(overlay);
+            }
+            return overlay;
+        }
+
+        async function showProposePage() {
+            const overlay = ensureProposeOverlay();
+            if (!overlay.dataset.loaded) {
+                const html = await (await fetch('/partials/propose-class.html')).text();
+                overlay.innerHTML = html;
+                overlay.dataset.loaded = 'true';
+                initProposePage();
+            }
+            overlay.style.display = 'block';
+            $('#propose-status').textContent = 'Fill out the class and click Save.';
+            if (location.hash !== '#/propose-class') location.hash = '#/propose-class';
+        }
+
+        function hideProposePage() {
+            const overlay = $('#propose-overlay');
+            if (overlay) overlay.style.display = 'none';
+            if (location.hash === '#/propose-class') history.replaceState(null, '', ' ');
+        }
+
+        window.addEventListener('hashchange', () => {
+            if (location.hash === '#/propose-class') showProposePage(); else hideProposePage();
+        });
+
+        // Wire the button that opens the page (once the partial is loaded)
+        const wireProposeButton = () => {
+            const btn = $('#btn-propose');
+            if (btn && !btn.dataset.bound) {
+                btn.onclick = showProposePage;
+                btn.dataset.bound = '1';
+            }
+        };
+
+        // Call after partials load:
+        wireProposeButton();
+
+        // If user refreshed on the route, open it:
+        if (location.hash === '#/propose-class') showProposePage();
+
+        // ---------- Propose Class: page logic ----------
+        function initProposePage() {
+            const list = $('#pc-attr-list');
+
+            const addAttrRow = (prefill = {}) => {
+                const row = el('div', { className: 'attr-row' });
+
+                const name = el('input', { type: 'text', placeholder: 'snake_case', value: prefill.name || '' });
+                name.pattern = '^[a-z_][a-z0-9_]*$';
+                name.title = 'snake_case, letters/numbers/_; must start with a letter or underscore';
+
+                const type = el('select', {});
+                ['str', 'int', 'float', 'bool', 'literal', 'list[str]', 'list[int]', 'list[float]', 'list[bool]']
+                    .forEach(t => type.appendChild(el('option', { value: t, textContent: t })));
+                type.value = prefill.type || 'str';
+
+                // NEW
+                const opt = el('input', { type: 'checkbox', title: 'Check if this field is Optional[...]' });
+
+                opt.checked = !!prefill.optional;
+
+                const lit = el('input', { type: 'text', placeholder: 'e.g., CS, PCW, GW', value: (prefill.literal_values || []).join(', ') });
+                const desc = el('input', { type: 'text', placeholder: 'Field description', value: prefill.description || '' });
+
+                const del = el('button', { type: 'button', className: 'ghost', textContent: '✕' });
+                del.onclick = () => row.remove();
+
+                const litWrap = el('div', { className: 'lit-wrap' }, [lit]);
+
+                const toggleLit = () => {
+                    const isLit = type.value === 'literal';
+                    litWrap.style.visibility = isLit ? 'visible' : 'hidden';
+                    litWrap.style.pointerEvents = isLit ? 'auto' : 'none';
+                    if (!isLit) lit.value = '';
+                };
+                type.addEventListener('change', toggleLit);
+                toggleLit();
+
+                row.appendChild(name);
+                row.appendChild(type);
+                row.appendChild(opt);
+                row.appendChild(litWrap);
+                row.appendChild(desc);
+                row.appendChild(del);
+
+                list.appendChild(row);
+            };
+
+            // Add starter row
+            if (!list.childElementCount) addAttrRow();
+
+            $('#pc-attr-add').onclick = () => addAttrRow();
+
+            $('#btn-propose-back').onclick = hideProposePage;
+
+            $('#btn-propose-save').onclick = async () => {
+                const status = $('#propose-status');
+                try {
+                    const className = ($('#pc-name').value || '').trim();
+                    const doc = ($('#pc-desc').value || '').trim();
+
+                    if (!/^[A-Z][A-Za-z0-9_]*$/.test(className)) {
+                        status.textContent = 'Invalid class name. Use CamelCase (e.g., HumanDevelopmentalTimepoint).';
+                        return;
+                    }
+                    const rows = Array.from(list.querySelectorAll('.attr-row'));
+                    const seen = new Set();
+                    const attrs = [];
+                    for (const r of rows) {
+                        const [name, type, opt, litWrap, desc, _del] = r.children;
+                        const nm = name.value.trim();
+                        if (!nm) continue;
+                        if (!/^[a-z_][a-z0-9_]*$/.test(nm)) {
+                            status.textContent = `Invalid field name "${nm}" (use snake_case).`;
+                            return;
+                        }
+                        if (seen.has(nm)) {
+                            status.textContent = `Duplicate field name "${nm}".`;
+                            return;
+                        }
+                        seen.add(nm);
+
+                        const t = type.value;
+                        const optional = opt.checked;
+                        const description = desc.value.trim();
+                        let spec = { name: nm, type: t, optional, description };
+
+                        if (t === 'literal') {
+                            const raw = litWrap.querySelector('input').value.trim();
+                            const vals = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+                            if (vals.length === 0) {
+                                status.textContent = `Literal field "${nm}" requires at least one value.`;
+                                return;
+                            }
+                            spec.literal_values = vals;
+                        }
+                        attrs.push(spec);
+                    }
+
+                    const payload = { name: className, description: doc, attributes: attrs };
+
+                    status.textContent = 'Saving…';
+                    await API.proposeClass(payload);
+                    status.textContent = `Saved! Appended class ${className} to proposed_classes.py`;
+                    // small QoL: clear form but keep one empty row
+                    $('#pc-name').value = '';
+                    $('#pc-desc').value = '';
+                    list.innerHTML = '';
+                    addAttrRow();
+                } catch (e) {
+                    const msg = (e && e.message) ? e.message : String(e);
+                    $('#propose-status').textContent = msg;
+                }
+            };
+        }
+
+        // Also (re)bind the toolbar button after partials load:
+        document.addEventListener('partials:loaded', wireProposeButton);
 
         async function boot() {
             try {
@@ -1346,6 +1523,7 @@
                 renderRelationships();
             } catch (e) { console.error(e); setStatus('Failed to initialize. Is the backend running?'); }
         }
+
         boot();
     </script>
 </body>

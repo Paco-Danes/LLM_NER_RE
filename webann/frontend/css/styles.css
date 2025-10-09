@@ -632,3 +632,76 @@ button[disabled] {
 .textwrap {
     position: relative;
 }
+
+/* Full-page overlay inside .main (keeps annotation DOM intact under it) */
+.main {
+    position: relative;
+}
+
+.page-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    background: var(--bg, #fff);
+    overflow: auto;
+    padding: 12px;
+}
+
+/* Propose form layout */
+.proposewrap {
+    display: grid;
+    gap: 16px;
+    padding: 8px 0;
+}
+
+.attr-head,
+.attr-row {
+    display: grid;
+    grid-template-columns: 160px 140px 100px 1fr 1.5fr 40px;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.attr-head {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    margin-bottom: 0px;
+}
+
+.attr-head span {
+    font-weight: 600;
+    margin-left: 4px;
+}
+
+.attr-row input[type="text"],
+.attr-row select {
+    width: 100%;
+}
+
+.attr-row input[type="checkbox"] {
+    margin-left: 20%;
+    width: 30%;
+    background: #12182a;
+    position: relative;
+}
+
+input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px;
+    color: var(--text);
+}
+
+.attr-row input[type="checkbox"]:checked {
+    background: var(--ok);
+}
+
+
+.lit-wrap {
+    transition: opacity .2s;
+}

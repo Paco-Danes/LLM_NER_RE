@@ -9,11 +9,16 @@ from pathlib import Path
 import json
 import tempfile
 import os
+import re
+import textwrap
+
 
 DATA_DIR = Path(__file__).parent / "data"
 CLASSES_FILE = DATA_DIR / "classes.json"
 TEXTS_FILE = DATA_DIR / "texts.json"
 ANNOT_FILE = DATA_DIR / "annotations.jsonl"
+PROPOSED_FILE = DATA_DIR / "proposed_classes.py"
+
 # ---------- Files ----------
 RELATIONS_FILE = DATA_DIR / "relations.json"
 # ---- ADD: relation embedding index files (symmetric to class index) ----
@@ -278,7 +283,109 @@ async def save_annotations(payload: SavePayload, overwrite: bool = Query(False))
 
     write_annotations_jsonl(ANNOT_FILE, items)
     return {"ok": True, "overwritten": idx is not None}
+
+class AttrSpec(BaseModel):
+    name: str
+    type: Literal[
+        "str", "int", "float", "bool",
+        "literal", "list[str]", "list[int]", "list[float]", "list[bool]"
+    ] = "str"
+    optional: bool = False
+    description: Optional[str] = ""
+    literal_values: Optional[List[str]] = None  # required if type == literal
+
+class ProposedClassIn(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    attributes: List[AttrSpec] = []
+
+def _ensure_proposed_file():
+    """Create proposed_classes.py with a minimal header if missing."""
+    if PROPOSED_FILE.exists():
+        return
     
+    PROPOSED_FILE.parent.mkdir(parents=True, exist_ok=True)
+    header = textwrap.dedent("""\
+        # Auto-generated proposed classes
+        from __future__ import annotations
+        from typing import Optional, List, Literal
+        from pydantic import BaseModel, Field
+
+        # If you already define NamedEntity elsewhere, keep this stub or replace it.
+        class NamedEntity(BaseModel):
+            \"\"\"Base type for all proposed entities.\"\"\"
+            pass
+
+        """)
+    PROPOSED_FILE.write_text(header, encoding="utf-8")
+
+def _render_type_and_default(a: AttrSpec) -> tuple[str, str]:
+    """Return (annotation, default_expr) e.g. ('Optional[int]', 'None') or ('Literal[\"A\",\"B\"]', '...')."""
+    t = a.type
+    if t == "str": base = "str"
+    elif t == "int": base = "int"
+    elif t == "float": base = "float"
+    elif t == "bool": base = "bool"
+    elif t == "list[str]": base = "List[str]"
+    elif t == "list[int]": base = "List[int]"
+    elif t == "list[float]": base = "List[float]"
+    elif t == "list[bool]": base = "List[bool]"
+    elif t == "literal":
+        vals = a.literal_values or []
+        if not vals:
+            raise HTTPException(400, f'Field "{a.name}" is Literal but has no values.')
+        # quote safely
+        qvals = ", ".join(json.dumps(v) for v in vals)
+        base = f"Literal[{qvals}]"
+    else:
+        raise HTTPException(400, f"Unsupported type: {t}")
+
+    if a.optional:
+        return (f"Optional[{base}]", "None")
+    else:
+        return (base, "...")
+    
+def _sanitize_docstring(s: str) -> str:
+    # avoid breaking the triple quotes
+    return (s or "").replace('"""', '\\"""')
+
+def _render_class_code(payload: ProposedClassIn) -> str:
+    lines = []
+    lines.append(f"class {payload.name}(NamedEntity):")
+    doc = _sanitize_docstring(payload.description or "")
+    if doc.strip():
+        lines.append('    """')
+        for ln in doc.splitlines():
+            lines.append(f"    {ln}")
+        lines.append('    """')
+    else:
+        lines.append('    """No description provided."""')
+
+    for a in payload.attributes:
+        if not re.match(r"^[a-z_][a-z0-9_]*$", a.name):
+            raise HTTPException(400, f'Invalid field name: "{a.name}" (use snake_case).')
+        ann, default = _render_type_and_default(a)
+        desc_json = json.dumps(a.description or "")
+        lines.append(f"    {a.name}: {ann} = Field({default}, description={desc_json})")
+
+    return "\n".join(lines) + "\n"
+
+@app.post("/api/proposed-classes")
+async def propose_class(payload: ProposedClassIn):
+    # Validate class name
+    if not re.match(r"^[A-Z][A-Za-z0-9_]*$", payload.name):
+        raise HTTPException(400, "Invalid Python class name (use CamelCase).")
+    _ensure_proposed_file()
+    txt = PROPOSED_FILE.read_text(encoding="utf-8")
+    # Prevent duplicates
+    if re.search(rf"^\s*class\s+{re.escape(payload.name)}\s*\(", txt, flags=re.M):
+        raise HTTPException(409, f'Class "{payload.name}" already exists in proposed_classes.py')
+    # Generate and append
+    code = "\n" + _render_class_code(payload)
+    with PROPOSED_FILE.open("a", encoding="utf-8") as f:
+        f.write(code)
+    return {"ok": True, "file": str(PROPOSED_FILE), "bytes_written": len(code)}
+
 # ---------- Dev convenience ----------
 @app.get("/")
 async def root():
