@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Literal, Optional, Union
 
 class NamedEntity(BaseModel):
+    #id: str = Field(..., description="Locally unique id for this entity within the text, used for referencing in relationships.")
     label: str = Field(..., description="")
     def __init_subclass__(cls):
         super().__init_subclass__() # call BaseModel's __init_subclass__
@@ -228,10 +229,10 @@ class Virus(NamedEntity):
     Examples: "Influenza A virus", "SARS-CoV-2", "Human papillomavirus 16", "HIV-1", "Hepatitis B virus".
     """
 
-class CellularOrganism(NamedEntity):
+class OrganismTaxon(NamedEntity):
     """
-    Any life form made up of one or more cells, including animals, plants, fungi, and protists.
-    Examples: "Homo sapiens", "Arabidopsis thaliana", "Saccharomyces cerevisiae", "Caenorhabditis elegans", "Drosophila melanogaster".
+    A classification of a set of organisms. Can also be used to represent strains or subspecies.
+    Examples: "Homo Sapiens", "Bacteria", "Arabidopsis thaliana", "Saccharomyces cerevisiae", "Caenorhabditis elegans", "Drosophila melanogaster".
     """
 
 class Metabolite(NamedEntity):
