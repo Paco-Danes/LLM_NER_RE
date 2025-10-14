@@ -18,5 +18,6 @@
     "disease_context": "A statement qualifier representing a disease or condition in which the relationship took place.",
     "response_context": "A biological response either 'therapeutic_response' (positive) or 'negative'",
     "response_target_context": "A biological response target e.g a patient, a cohort, a model system, a cell line, a sample of biological material",
-    "sex_qualifier": "A qualifier used in a phenotypic relationships to state whether the relation is specific to a particular sex."
+    "sex_qualifier": "A qualifier used in a phenotypic relationships to state whether the relation is specific to a particular sex.",
+    "frequency": "A qualifier used in a phenotypic association to state how frequent the phenotype is observed in the subject"
 }

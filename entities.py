@@ -176,10 +176,17 @@ class MolecularActivity(NamedEntity):
 
 class PhenotypicFeature(NamedEntity):
     """
-    An observable trait, characteristic, or phenotype at organism, tissue, or cellular level.
+    An observable trait, characteristic, or phenotype at organism, tissue, or cellular level. It is constructed broadly as any kind of quality of an organism part, a collection of these qualities, or a change in quality or qualities (e.g. abnormally increased temperature).
     Synonyms: sign, symptom, phenotype, trait, endophenotype
     Examples: "hypertension", "hypercholesterolemia", "dysplasia", "reduced growth rate", "anemia", "microcephaly", "insulin resistance".
     """
+
+class GeneticInheritance(NamedEntity):
+    """
+    The pattern or 'mode' in which a particular genetic trait or disorder is passed from one generation to the next.
+    Examples: "autosomal dominant", "autosomal recessive".
+    """
+    type: Literal["autosomal dominant", "autosomal recessive", "X-linked dominant", "X-linked recessive", "Y-linked", "mitochondrial", "polygenic", "multifactorial"] | None = Field(None, description="Type of genetic inheritance, None if generic or other.")
 
 class SmallMolecule(NamedEntity):
     """
