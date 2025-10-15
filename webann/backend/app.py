@@ -4,6 +4,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Literal
 from functools import lru_cache
+import importlib
+import inspect
+from dataclasses import is_dataclass
 import numpy as np
 from pathlib import Path
 import json
@@ -11,7 +14,7 @@ import tempfile
 import os
 import re
 import textwrap
-
+from data.utils.relation_utils import RelationshipSpec, FixedChoiceField, FreeTextField, DynamicEntityField
 
 DATA_DIR = Path(__file__).parent / "data"
 CLASSES_FILE = DATA_DIR / "classes.json"
@@ -21,6 +24,7 @@ PROPOSED_FILE = DATA_DIR / "proposed_classes.py"
 
 # ---------- Files ----------
 RELATIONS_FILE = DATA_DIR / "relations.json"
+RELATION_SPECS_IMPORT = "data.relationship_specs"
 # ---- ADD: relation embedding index files (symmetric to class index) ----
 REL_EMBED_INDEX_FILE = DATA_DIR / "rel_index.npz"
 REL_EMBED_META_FILE  = DATA_DIR / "rel_index_meta.json"
@@ -93,6 +97,104 @@ def write_annotations_jsonl(path: Path, items: List[Dict[str, Any]]):
             tmp.write(json.dumps(obj, ensure_ascii=False) + "\n")
         tmp_path = tmp.name
     os.replace(tmp_path, path)
+
+def _normalize_free_text_type(py_type: type) -> str:
+    # Frontend treats everything not 'number' as 'text'
+    return "number" if py_type in (int, float) else "text"
+
+def _relation_spec_to_meta(spec) -> dict:
+    """
+    Convert a RelationshipSpec into the JSON structure the frontend expects.
+    Shape:
+    {
+      name: {
+        description: str,
+        subject: [class,...],
+        object:  [class,...],
+        attributes: {
+          field_name: {
+             kind: "enum" | "text" | "number" | "entity",
+             enum?: [..],
+             classes?: [..],
+             nullable: bool,
+          }, ...
+        }
+      }
+    }
+    """
+    attrs: dict[str, dict] = {}
+
+    # Turn predicate_choices into a normal enum attribute to avoid name collision with the edge's
+    # 'predicate' property (which stores the relation type name in your UI).
+    if getattr(spec, "predicate_choices", None):
+        attrs["edge_predicate"] = {
+            "kind": "enum",
+            "enum": list(spec.predicate_choices),
+            "nullable": False
+        }
+
+    for f in getattr(spec, "fixed_fields", []) or []:
+        if isinstance(f, FixedChoiceField):
+            attrs[f.name] = {
+                "kind": "enum",
+                "enum": list(f.choices),
+                "nullable": bool(getattr(f, "optional", True))
+            }
+        elif isinstance(f, FreeTextField):
+            kind = _normalize_free_text_type(getattr(f, "typ", str))
+            attrs[f.name] = {
+                "kind": kind,
+                # keep 'type' only for number; text is implicit
+                **({"type": kind} if kind == "number" else {}),
+                "nullable": bool(getattr(f, "optional", True))
+            }
+
+    for d in getattr(spec, "dynamic_fields", []) or []:
+        attrs[d.name] = {
+            "kind": "entity",
+            "classes": list(d.classes),
+            "nullable": bool(getattr(d, "optional", True))
+        }
+
+    return {
+        "description": getattr(spec, "description", "") or "",
+        "subject": list(getattr(spec, "subject_classes", []) or []),
+        "object":  list(getattr(spec, "object_classes", []) or []),
+        "attributes": attrs
+    }
+
+@lru_cache(maxsize=1)
+def _build_relations_meta():
+    """Import DEFAULT_SPECS and convert to JSON. Return None if import fails."""
+    if RelationshipSpec is None:
+        return None
+    try:
+        mod = importlib.import_module(RELATION_SPECS_IMPORT)
+    except Exception as e:
+        print(f"WARN: could not import {RELATION_SPECS_IMPORT}: {e}")
+        return None
+
+    # Preferred: DEFAULT_SPECS = [RelationshipSpec,...]
+    specs = getattr(mod, "DEFAULT_SPECS", None)
+
+    # Fallback: scan module symbols for RelationshipSpec instances
+    if not specs:
+        specs = []
+        for name, obj in vars(mod).items():
+            try:
+                if isinstance(obj, RelationshipSpec):
+                    specs.append(obj)
+            except Exception:
+                pass
+
+    if not specs:
+        print("WARN: No RelationshipSpec instances found.")
+        return None
+
+    out = {}
+    for spec in specs:
+        out[spec.name] = _relation_spec_to_meta(spec)
+    return out
 
 # ---- ADD: lazy loaders ----
 @lru_cache(maxsize=1)
@@ -225,7 +327,26 @@ async def get_classes():
 
 @app.get("/api/relations")
 async def get_relations():
+    meta = _build_relations_meta()
+    if meta:
+        # save to a static json file just for insepection/debugging
+        with RELATIONS_FILE.open("w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2, ensure_ascii=False)
+        return meta
+    # Fallback to static file if import failed
+    print('FAILED TO IMPORT RELATION SPECS, FALLING BACK TO STATIC FILE')
     return load_json(RELATIONS_FILE)
+
+@app.post("/api/relations/refresh")
+async def refresh_relations():
+    try:
+        _build_relations_meta.cache_clear()
+        meta = _build_relations_meta()
+        if not meta:
+            raise HTTPException(500, "Could not rebuild relations meta; check RELATION_SPECS_IMPORT")
+        return {"ok": True, "count": len(meta)}
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 @app.get("/api/texts/next")
 async def get_next(cursor: Optional[int] = None):
@@ -260,6 +381,104 @@ async def get_annotation(text_id: str):
             return it
     raise HTTPException(404, "No saved annotation for this text_id")
 
+def _validate_and_normalize_relations(payload: SavePayload) -> list[dict]:
+    """
+    Returns a cleaned list of relation dicts ready to persist.
+    - Validates subject/object IDs & classes
+    - Swaps (subject, object) if the reverse orientation is the valid one
+    - Validates attributes per spec; drops unknown attrs
+    """
+    meta = _build_relations_meta() or load_json(RELATIONS_FILE)
+    if not meta:
+        raise HTTPException(500, "No relation metadata available.")
+
+    # id -> Entity (pydantic model)
+    ent_map = {e.id: e for e in payload.entities}
+
+    cleaned = []
+    for rel in payload.relations:
+        if rel.predicate not in meta:
+            raise HTTPException(400, f"Unknown relation type '{rel.predicate}' in relation {rel.id}")
+
+        if rel.subject not in ent_map or rel.object not in ent_map:
+            raise HTTPException(400, f"Relation {rel.id} refers to unknown entity id(s).")
+
+        spec = meta[rel.predicate]
+        subj = ent_map[rel.subject]
+        obj  = ent_map[rel.object]
+
+        subj_ok = subj.class_ in set(spec.get("subject", []))
+        obj_ok  = obj.class_  in set(spec.get("object",  []))
+        if not (subj_ok and obj_ok):
+            # Try reverse
+            subj_ok_rev = subj.class_ in set(spec.get("object", []))
+            obj_ok_rev  = obj.class_  in set(spec.get("subject", []))
+            if subj_ok_rev and obj_ok_rev:
+                # auto-swap to canonical orientation
+                rel.subject, rel.object = rel.object, rel.subject
+                subj, obj = obj, subj
+            else:
+                raise HTTPException(
+                    400,
+                    f"Relation {rel.id} pair ({subj.class_} → {obj.class_}) not allowed for '{rel.predicate}'"
+                )
+
+        # Validate attributes
+        want_attrs = spec.get("attributes", {}) or {}
+        keep: dict[str, any] = {} # type: ignore
+        given = rel.attributes or {}
+
+        for name, aspec in want_attrs.items():
+            nullable = bool(aspec.get("nullable", True))
+            kind = aspec.get("kind", "text")
+            val = given.get(name, None)
+
+            # Required check
+            if (val is None or val == "") and not nullable:
+                raise HTTPException(400, f"Relation {rel.id}: missing required attribute '{name}'")
+
+            if val in (None, ""):
+                keep[name] = None
+                continue
+
+            if kind == "enum":
+                allowed = set(aspec.get("enum", []))
+                if val not in allowed:
+                    raise HTTPException(
+                        400,
+                        f"Relation {rel.id}: invalid value '{val}' for '{name}'. Allowed: {sorted(allowed)}"
+                    )
+                keep[name] = val
+
+            elif kind == "number":
+                try:
+                    keep[name] = float(val)
+                except Exception:
+                    raise HTTPException(400, f"Relation {rel.id}: '{name}' must be numeric")
+
+            elif kind == "entity":
+                target = ent_map.get(str(val))
+                if (not target) or (target.class_ not in set(aspec.get("classes", []))):
+                    raise HTTPException(
+                        400,
+                        f"Relation {rel.id}: attribute '{name}' must reference an entity with class in {aspec.get('classes')}"
+                    )
+                keep[name] = target.id
+
+            else:
+                # 'text' or unknown -> stringify
+                keep[name] = str(val)
+
+        cleaned.append({
+            "id": rel.id,
+            "predicate": rel.predicate,
+            "subject": rel.subject,
+            "object": rel.object,
+            "attributes": keep
+        })
+
+    return cleaned
+
 @app.post("/api/annotations")
 async def save_annotations(payload: SavePayload, overwrite: bool = Query(False)):
     # sanity check spans
@@ -267,8 +486,13 @@ async def save_annotations(payload: SavePayload, overwrite: bool = Query(False))
         if not (0 <= ent.span.start <= ent.span.end <= len(payload.text)):
             raise HTTPException(400, f"Invalid span for entity {ent.id}")
 
+    # NEW: validate & normalize relations (raises on error)
+    normalized_relations = _validate_and_normalize_relations(payload)
+
     obj = payload.model_dump(by_alias=True)
     obj.pop("text", None)  # don't persist raw text
+    # NEW: use cleaned relations
+    obj["relations"] = normalized_relations
 
     items = read_annotations_jsonl(ANNOT_FILE)
     idx = next((i for i, it in enumerate(items) if it.get("text_id") == payload.text_id), None)
@@ -283,6 +507,7 @@ async def save_annotations(payload: SavePayload, overwrite: bool = Query(False))
 
     write_annotations_jsonl(ANNOT_FILE, items)
     return {"ok": True, "overwritten": idx is not None}
+
 
 class AttrSpec(BaseModel):
     name: str

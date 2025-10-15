@@ -341,29 +341,76 @@
         }
 
         function renderRelAttrFields(relName, prefill = {}) {
-            const wrap = $('#rel-attrs'); wrap.innerHTML = '';
+            const wrap = $('#rel-attrs');
+            wrap.innerHTML = '';
             const spec = state.relationsMeta[relName];
-            if (!spec || !spec.attributes || Object.keys(spec.attributes).length === 0) {
-                wrap.appendChild(el('div', { className: 'empty' }, ['No attributes.'])); return;
-            }
-            for (const [attr, aspec] of Object.entries(spec.attributes)) {
+            if (!spec) { wrap.appendChild(el('div', { className: 'empty' }, ['No attributes.'])); return; }
+
+            const attrs = spec.attributes || {};
+            let any = false;
+
+            const candidateEntities = (classes) =>
+                state.annotations.filter(a => classes.includes(a.class));
+
+            for (const [attr, aspec] of Object.entries(attrs)) {
                 const row = el('div', { className: 'row', style: 'align-items:center' }, [
                     el('label', { style: 'width:160px; color: var(--muted);' }, [attr])
                 ]);
-                let input;
-                if (aspec.enum) {
-                    input = el('select', { id: `rel-attr-${attr}` }, aspec.enum.map(v => el('option', { value: v }, [v])));
-                    if (aspec.nullable) input.prepend(el('option', { value: '', textContent: '(none)' }));
-                } else if (aspec.type === 'number') {
-                    input = el('input', { id: `rel-attr-${attr}`, type: 'number', step: 'any', style: 'width:120px' });
-                } else {
-                    input = el('input', { id: `rel-attr-${attr}`, type: 'text' });
-                }
+
+                let input = null;
                 const val = prefill[attr];
-                if (val !== undefined && val !== null) input.value = String(val);
+
+                switch (aspec.kind) {
+                    case 'enum': {
+                        input = el('select', { id: `rel-attr-${attr}` }, aspec.enum.map(v => el('option', { value: v }, [v])));
+                        if (aspec.nullable) input.prepend(el('option', { value: '', textContent: '(none)' }));
+                        if (val !== undefined && val !== null) input.value = String(val);
+                        break;
+                    }
+                    case 'number': {
+                        input = el('input', { id: `rel-attr-${attr}`, type: 'number', step: 'any', style: 'width:120px' });
+                        if (val !== undefined && val !== null) input.value = String(val);
+                        break;
+                    }
+                    case 'entity': {
+                        const classes = aspec.classes || [];
+                        const cands = candidateEntities(classes);
+
+                        // If optional and no candidates in this doc -> omit entirely
+                        if (cands.length === 0 && aspec.nullable !== false) {
+                            continue;
+                        }
+
+                        input = el('select', { id: `rel-attr-${attr}` }, []);
+                        if (aspec.nullable) input.appendChild(el('option', { value: '', textContent: '(none)' }));
+
+                        if (cands.length === 0) {
+                            // Required, but nothing to choose from -> disabled + hint
+                            input.disabled = true;
+                            input.appendChild(el('option', { value: '', textContent: 'No matching entities in document' }));
+                        } else {
+                            for (const ent of cands) {
+                                const label = `${ent.label} (${ent.class})`;
+                                input.appendChild(el('option', { value: ent.id, textContent: label }));
+                            }
+                        }
+                        if (val !== undefined && val !== null) input.value = String(val);
+                        break;
+                    }
+                    default: { // 'text'
+                        input = el('input', { id: `rel-attr-${attr}`, type: 'text' });
+                        if (val !== undefined && val !== null) input.value = String(val);
+                    }
+                }
+
                 row.appendChild(input);
+                // Attach a spot for per-row validation messages
+                row.appendChild(el('small', { className: 'rel-attr-help', style: 'margin-left:8px;color:var(--muted)' }, []));
                 wrap.appendChild(row);
+                any = true;
             }
+
+            if (!any) wrap.appendChild(el('div', { className: 'empty' }, ['No attributes.']));
         }
 
         function renderRelDescription(relName) {
@@ -553,18 +600,63 @@
 
         function validateRelations() {
             let ok = true;
+
             for (const r of state.relations) {
-                const complete = !!(r.subject && r.object && r.predicate && r.predicate.trim() !== '');
-                if (!complete) {
+                const row = document.querySelector(`.rel-row[data-rel-id="${r.id}"]`);
+                const highlight = (msg) => {
                     ok = false;
-                    // flash the offending row
-                    const row = document.querySelector(`.rel-row[data-rel-id="${r.id}"]`);
                     if (row) {
                         row.classList.add('invalid');
+                        showRelError(row, msg || 'Incomplete relation');
                         setTimeout(() => row.classList.remove('invalid'), 900);
+                    }
+                };
+
+                // Basic completeness
+                if (!r.subject || !r.object || !r.predicate || r.predicate.trim() === '') {
+                    highlight('Relation needs subject, type, and object');
+                    continue;
+                }
+
+                // Class-role viability (UI-level check; server will re-validate)
+                const spec = state.relationsMeta[r.predicate];
+                if (!spec) { highlight('Unknown relation'); continue; }
+                const left = entityById(r.subject);
+                const right = entityById(r.object);
+                if (!left || !right) { highlight('Dangling entity reference'); continue; }
+
+                const fwd = spec.subject?.includes(left.class) && spec.object?.includes(right.class);
+                const rev = spec.subject?.includes(right.class) && spec.object?.includes(left.class);
+                if (!fwd && !rev) {
+                    highlight('Entity classes not allowed for this relation');
+                    continue;
+                }
+
+                // Attribute-level validation
+                const attrs = spec.attributes || {};
+                for (const [name, aspec] of Object.entries(attrs)) {
+                    const v = (r.attrs || {})[name];
+
+                    if ((v === undefined || v === null || v === '') && aspec.nullable === false) {
+                        highlight(`Missing required attribute: ${name}`);
+                        break;
+                    }
+                    if (v === null || v === '' || v === undefined) continue;
+
+                    if (aspec.kind === 'enum') {
+                        if (!aspec.enum.includes(v)) { highlight(`'${name}' has invalid value`); break; }
+                    } else if (aspec.kind === 'number') {
+                        if (Number.isNaN(Number(v))) { highlight(`'${name}' must be a number`); break; }
+                    } else if (aspec.kind === 'entity') {
+                        const ent = entityById(v);
+                        if (!ent || !aspec.classes.includes(ent.class)) {
+                            highlight(`'${name}' must refer to a ${aspec.classes.join(' or ')}`);
+                            break;
+                        }
                     }
                 }
             }
+
             return ok;
         }
 
@@ -670,7 +762,9 @@
                 const midX = (centerA.x + centerB.x) / 2;
                 const midY = (centerA.y + centerB.y) / 2 - 12;
 
-                const label = r.predicate || '(no relation)';
+                const edgePred = (r.attrs && r.attrs.edge_predicate) ? ` \n[${r.attrs.edge_predicate}]` : '';
+                const label = (r.predicate || '(no relation)') + edgePred;
+
                 const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 textEl.setAttribute('x', midX);
                 textEl.setAttribute('y', midY);
@@ -847,6 +941,7 @@
         function closeRelModal() { $('#rel-modal-bd').style.display = 'none'; }
 
         $('#btn-rel-cancel').onclick = closeRelModal;
+
         $('#btn-rel-confirm').onclick = () => {
             const rel = state.relations.find(r => r.id === ui.relEditingId);
             if (!rel) return;
@@ -854,39 +949,37 @@
             const name = $('#sel-rel').value;
             rel.predicate = name;
 
-            // Auto-place or auto-swap based on allowed orientation
+            // Orientation helpers (unchanged)
             const left = rel.subject ? entityById(rel.subject) : null;
             const right = rel.object ? entityById(rel.object) : null;
 
             if (left && right) {
                 const ori = relationOrientationForPair(name, left.class, right.class);
-                if (ori === 'reverse') swapRelParticipants(rel); // auto-swap
+                if (ori === 'reverse') swapRelParticipants(rel);
             } else if (left && !right) {
                 const role = firstEntityRoleFor(name, left.class);
-                if (role === 'object') {
-                    // put current chip on the right, open left placeholder
-                    rel.object = rel.subject;
-                    rel.subject = null;
-                }
+                if (role === 'object') { rel.object = rel.subject; rel.subject = null; }
             } else if (!left && right) {
-                // rare but supported (only right present)
                 const role = firstEntityRoleFor(name, right.class);
-                if (role === 'subject') {
-                    rel.subject = rel.object;
-                    rel.object = null;
-                }
+                if (role === 'subject') { rel.subject = rel.object; rel.object = null; }
             }
 
-            // Collect relation attributes
+            // Collect relation attributes with kinds
             const spec = state.relationsMeta[name] || { attributes: {} };
             const out = {};
             for (const [attr, aspec] of Object.entries(spec.attributes || {})) {
                 const node = document.querySelector(`#rel-attr-${attr}`);
                 if (!node) continue;
                 const raw = node.value;
-                if (raw === '' && aspec.nullable) out[attr] = null;
-                else if (aspec.type === 'number') out[attr] = raw === '' ? null : Number(raw);
-                else out[attr] = raw;
+
+                if (raw === '' && aspec.nullable) {
+                    out[attr] = null;
+                } else if (aspec.kind === 'number') {
+                    out[attr] = raw === '' ? null : Number(raw);
+                } else {
+                    // enum, text, entity -> store raw string (entity stores the entity id)
+                    out[attr] = raw;
+                }
             }
             rel.attrs = out;
 

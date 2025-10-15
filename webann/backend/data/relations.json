@@ -1,31 +1,428 @@
 {
-    "AnatomicalStructToFunction": {
-        "description": "A relation between an anatomical structure and a function it performs or is associated with.",
-        "subject": [
-            "BrainRegion",
-            "TissueOrOrgan"
+  "ChemicalAffectsGene": {
+    "description": "Describes an effect that a chemical has on a gene or gene product (e.g. an impact of on its abundance, activity,localization, processing, expression, etc.)",
+    "subject": [
+      "SmallMolecule"
+    ],
+    "object": [
+      "Gene",
+      "Protein",
+      "RnaTranscript"
+    ],
+    "attributes": {
+      "edge_predicate": {
+        "kind": "enum",
+        "enum": [
+          "affects",
+          "causes"
         ],
-        "object": [
-            "CNSFunction"
-        ]
-    },
-    "AnatomicalStructToDisease": {
-        "description": "A relation between an anatomical structure and a disease that affects it.",
-        "subject": [
-            "BrainRegion",
-            "TissueOrOrgan"
+        "nullable": false
+      },
+      "subject_form_or_variant": {
+        "kind": "enum",
+        "enum": [
+          "genetic_variant_form",
+          "modified_form",
+          "loss_of_function_variant_form",
+          "non_loss_of_function_variant_form",
+          "gain_of_function_variant_form",
+          "dominant_negative_variant_form",
+          "polymorphic_form",
+          "snp_form",
+          "analog_form"
         ],
-        "object": [
-            "Disease"
-        ]
-    },
-    "ProteinPathwayParticipation": {
-        "description": "A relation between a protein and a biological pathway it is involved in.",
-        "subject": [
-            "Protein"
+        "nullable": true
+      },
+      "subject_part": {
+        "kind": "enum",
+        "enum": [
+          "3_prime_utr",
+          "5_prime_utr",
+          "polya_tail",
+          "promoter",
+          "enhancer",
+          "exon",
+          "intron"
         ],
-        "object": [
-            "BiologicalPathway"
-        ]
+        "nullable": true
+      },
+      "subject_derivative": {
+        "kind": "enum",
+        "enum": [
+          "metabolite"
+        ],
+        "nullable": true
+      },
+      "subject_aspect": {
+        "kind": "enum",
+        "enum": [
+          "abundance",
+          "activity",
+          "expression",
+          "synthesis",
+          "degradation",
+          "cleavage",
+          "hydrolysis",
+          "metabolic_processing",
+          "mutation_rate",
+          "stability",
+          "folding",
+          "localization",
+          "transport",
+          "absorption",
+          "aggregation",
+          "interaction",
+          "release",
+          "secretion",
+          "uptake",
+          "splicing",
+          "molecular_interaction",
+          "guanyl_nucleotide_exchange",
+          "adenyl_nucleotide_exchange",
+          "molecular_modification",
+          "acetylation",
+          "acylation",
+          "alkylation",
+          "amination",
+          "carbamoylation",
+          "ethylation",
+          "glutathionylation",
+          "glycation",
+          "glycosylation",
+          "glucuronidation",
+          "n_linked_glycosylation",
+          "o_linked_glycosylation",
+          "hydroxylation",
+          "lipidation",
+          "farnesylation",
+          "geranoylation",
+          "myristoylation",
+          "palmitoylation",
+          "prenylation",
+          "methylation",
+          "nitrosation",
+          "nucleotidylation",
+          "phosphorylation",
+          "ribosylation",
+          "ADP-ribosylation",
+          "sulfation",
+          "sumoylation",
+          "ubiquitination",
+          "oxidation",
+          "reduction",
+          "carboxylation"
+        ],
+        "nullable": true
+      },
+      "subject_direction": {
+        "kind": "enum",
+        "enum": [
+          "increased",
+          "decreased",
+          "upregulated",
+          "downregulated"
+        ],
+        "nullable": true
+      },
+      "object_form_or_variant": {
+        "kind": "enum",
+        "enum": [
+          "genetic_variant_form",
+          "modified_form",
+          "loss_of_function_variant_form",
+          "non_loss_of_function_variant_form",
+          "gain_of_function_variant_form",
+          "dominant_negative_variant_form",
+          "polymorphic_form",
+          "snp_form",
+          "analog_form"
+        ],
+        "nullable": true
+      },
+      "object_part": {
+        "kind": "enum",
+        "enum": [
+          "3_prime_utr",
+          "5_prime_utr",
+          "polya_tail",
+          "promoter",
+          "enhancer",
+          "exon",
+          "intron"
+        ],
+        "nullable": true
+      },
+      "object_aspect": {
+        "kind": "enum",
+        "enum": [
+          "abundance",
+          "activity",
+          "expression",
+          "synthesis",
+          "degradation",
+          "cleavage",
+          "hydrolysis",
+          "metabolic_processing",
+          "mutation_rate",
+          "stability",
+          "folding",
+          "localization",
+          "transport",
+          "absorption",
+          "aggregation",
+          "interaction",
+          "release",
+          "secretion",
+          "uptake",
+          "splicing",
+          "molecular_interaction",
+          "guanyl_nucleotide_exchange",
+          "adenyl_nucleotide_exchange",
+          "molecular_modification",
+          "acetylation",
+          "acylation",
+          "alkylation",
+          "amination",
+          "carbamoylation",
+          "ethylation",
+          "glutathionylation",
+          "glycation",
+          "glycosylation",
+          "glucuronidation",
+          "n_linked_glycosylation",
+          "o_linked_glycosylation",
+          "hydroxylation",
+          "lipidation",
+          "farnesylation",
+          "geranoylation",
+          "myristoylation",
+          "palmitoylation",
+          "prenylation",
+          "methylation",
+          "nitrosation",
+          "nucleotidylation",
+          "phosphorylation",
+          "ribosylation",
+          "ADP-ribosylation",
+          "sulfation",
+          "sumoylation",
+          "ubiquitination",
+          "oxidation",
+          "reduction",
+          "carboxylation"
+        ],
+        "nullable": true
+      },
+      "object_direction": {
+        "kind": "enum",
+        "enum": [
+          "increased",
+          "decreased",
+          "upregulated",
+          "downregulated"
+        ],
+        "nullable": true
+      },
+      "causal_mechanism": {
+        "kind": "enum",
+        "enum": [
+          "binding",
+          "inhibition",
+          "antibody_inhibition",
+          "antagonism",
+          "molecular_channel_blockage",
+          "inverse_agonism",
+          "negative_allosteric_modulation",
+          "agonism",
+          "molecular_channel_opening",
+          "positive_allosteric_modulation",
+          "potentiation",
+          "activation",
+          "inducer",
+          "transcriptional_regulation",
+          "signaling_mediated_control",
+          "stabilization",
+          "stimulation",
+          "releasing_activity"
+        ],
+        "nullable": true
+      },
+      "subject_context": {
+        "kind": "entity",
+        "classes": [
+          "CellType",
+          "CellularComponent",
+          "TissueOrOrgan"
+        ],
+        "nullable": true
+      },
+      "object_context": {
+        "kind": "entity",
+        "classes": [
+          "CellType",
+          "CellularComponent",
+          "TissueOrOrgan"
+        ],
+        "nullable": true
+      },
+      "anatomical_context": {
+        "kind": "entity",
+        "classes": [
+          "CellType",
+          "CellularComponent",
+          "TissueOrOrgan"
+        ],
+        "nullable": true
+      },
+      "species_context": {
+        "kind": "entity",
+        "classes": [
+          "OrganismTaxon"
+        ],
+        "nullable": true
+      }
     }
+  },
+  "ChemicalToPathway": {
+    "description": "An interaction between a chemical entity and a biological process or pathway.",
+    "subject": [
+      "SmallMolecule"
+    ],
+    "object": [
+      "Pathway"
+    ],
+    "attributes": {
+      "edge_predicate": {
+        "kind": "enum",
+        "enum": [
+          "participates_in",
+          "actively_involved_in",
+          "consumed_by",
+          "is_output_of",
+          "enables",
+          "catalyzes"
+        ],
+        "nullable": false
+      }
+    }
+  },
+  "DiseaseOrPhenotypicFeatureToGeneticInheritance": {
+    "description": "A relationship between either a disease or a phenotypic feature and its mode of (genetic) inheritance.",
+    "subject": [
+      "Disease",
+      "PhenotypicFeature"
+    ],
+    "object": [
+      "GeneticInheritance"
+    ],
+    "attributes": {
+      "edge_predicate": {
+        "kind": "enum",
+        "enum": [
+          "has_mode_of_inheritance"
+        ],
+        "nullable": false
+      }
+    }
+  },
+  "DiseaseToPhenotypicFeature": {
+    "description": "A relationship between a disease and a phenotypic feature in which the phenotypic feature is associated with the disease in some way.",
+    "subject": [
+      "Disease"
+    ],
+    "object": [
+      "PhenotypicFeature"
+    ],
+    "attributes": {
+      "edge_predicate": {
+        "kind": "enum",
+        "enum": [
+          "has_phenotype"
+        ],
+        "nullable": false
+      },
+      "subject_aspect": {
+        "kind": "text",
+        "nullable": true
+      },
+      "subject_direction": {
+        "kind": "enum",
+        "enum": [
+          "increased",
+          "decreased",
+          "upregulated",
+          "downregulated"
+        ],
+        "nullable": true
+      },
+      "object_aspect": {
+        "kind": "text",
+        "nullable": true
+      },
+      "object_direction": {
+        "kind": "enum",
+        "enum": [
+          "increased",
+          "decreased",
+          "upregulated",
+          "downregulated"
+        ],
+        "nullable": true
+      },
+      "frequency": {
+        "kind": "text",
+        "nullable": true
+      },
+      "disease_context": {
+        "kind": "entity",
+        "classes": [
+          "Disease"
+        ],
+        "nullable": true
+      }
+    }
+  },
+  "GeneToGeneCoexpression": {
+    "description": "Indicates that two genes or gene products are co-expressed, generally under the same conditions.",
+    "subject": [
+      "Gene",
+      "Protein",
+      "RnaTranscript"
+    ],
+    "object": [
+      "Gene",
+      "Protein",
+      "RnaTranscript"
+    ],
+    "attributes": {
+      "edge_predicate": {
+        "kind": "enum",
+        "enum": [
+          "coexpressed_with"
+        ],
+        "nullable": false
+      },
+      "quantifier": {
+        "kind": "text",
+        "nullable": true
+      },
+      "expression_site": {
+        "kind": "entity",
+        "classes": [
+          "CellType",
+          "CellularComponent",
+          "TissueOrOrgan"
+        ],
+        "nullable": true
+      },
+      "stage_qualifier": {
+        "kind": "entity",
+        "classes": [
+          "MouseDevelopmentalTimepoint",
+          "HumanDevelopmentalTimepoint"
+        ],
+        "nullable": true
+      }
+    }
+  }
 }

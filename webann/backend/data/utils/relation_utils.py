@@ -8,8 +8,6 @@ import re, keyword, hashlib
 
 from pydantic import BaseModel, Field, create_model
 from pydantic import TypeAdapter  # for producing a JSON Schema with $defs/$refs
-# your enums/constants live here
-from constants.my_enums import *
 
 # ============================================================
 # Utilities
