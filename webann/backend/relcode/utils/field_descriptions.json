@@ -11,7 +11,7 @@
     "object_form_or_variant": "As the subject_form_or_variant qualifier, but for the object.",
     "subject_part": "Defines a specific part/component of the core subject concept, e.g. 'ESR1 transcript' subject_part: 'polyA tail'",
     "object_part": "As the subject_part qualifier, but for the object.",
-    "anatomical_context": "A statement qualifier that describes the anatomical context (e.g., tissue, cell type, cellular component) in which the relationship occurs. For example, the context qualifier 'cerebral cortex' combines with a core concept of 'neuron' to express the composed concept 'neuron in the cerebral cortex'.",
+    "anatomical_context": "A statement qualifier that describes the anatomical context (e.g., tissue, cell line, cell type, cellular component) in which the relationship occurs. For example, the context qualifier 'cerebral cortex' combines with a core concept of 'neuron' to express the composed concept 'neuron in the cerebral cortex'.",
     "stage_qualifier": "A statement qualifier that describes the developmental or temporal life stage in which the relationship occurs.",
     "causal_mechanism": "A statement qualifier representing a type of molecular control mechanism through which an effect of a chemical on a gene or gene product is mediated",
     "species_context": "A statement qualifier representing a taxonomic category of species in which the relationship took place.",

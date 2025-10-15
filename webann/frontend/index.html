@@ -340,82 +340,335 @@
             return (inp && inp.value.trim()) || '';
         }
 
-        function renderRelAttrFields(relName, prefill = {}) {
+        // Grouping helper
+        function classifyAttrName(name) {
+            if (name === 'edge_predicate') return 'predicate';
+            if (name.startsWith('subject_')) return 'subject';
+            if (name.startsWith('object_')) return 'object';
+            return 'statement';
+        }
+
+        // Build default (spec) order split into groups
+        function splitSpecOrder(attrs) {
+            const groups = { subject: [], predicate: [], object: [], statement: [] };
+            for (const n of Object.keys(attrs)) {
+                groups[classifyAttrName(n)].push(n);
+            }
+            return groups;
+        }
+
+        // REPLACE: grouped render with per-group sorting + contextual labels
+        function renderRelAttrFields(relName, prefill = {}, orders = null) {
             const wrap = $('#rel-attrs');
             wrap.innerHTML = '';
             const spec = state.relationsMeta[relName];
             if (!spec) { wrap.appendChild(el('div', { className: 'empty' }, ['No attributes.'])); return; }
-
             const attrs = spec.attributes || {};
-            let any = false;
 
-            const candidateEntities = (classes) =>
-                state.annotations.filter(a => classes.includes(a.class));
+            // Determine baseline grouping
+            const specGroups = splitSpecOrder(attrs);
 
-            for (const [attr, aspec] of Object.entries(attrs)) {
-                const row = el('div', { className: 'row', style: 'align-items:center' }, [
-                    el('label', { style: 'width:160px; color: var(--muted);' }, [attr])
-                ]);
-
-                let input = null;
-                const val = prefill[attr];
-
-                switch (aspec.kind) {
-                    case 'enum': {
-                        input = el('select', { id: `rel-attr-${attr}` }, aspec.enum.map(v => el('option', { value: v }, [v])));
-                        if (aspec.nullable) input.prepend(el('option', { value: '', textContent: '(none)' }));
-                        if (val !== undefined && val !== null) input.value = String(val);
-                        break;
-                    }
-                    case 'number': {
-                        input = el('input', { id: `rel-attr-${attr}`, type: 'number', step: 'any', style: 'width:120px' });
-                        if (val !== undefined && val !== null) input.value = String(val);
-                        break;
-                    }
-                    case 'entity': {
-                        const classes = aspec.classes || [];
-                        const cands = candidateEntities(classes);
-
-                        // If optional and no candidates in this doc -> omit entirely
-                        if (cands.length === 0 && aspec.nullable !== false) {
-                            continue;
-                        }
-
-                        input = el('select', { id: `rel-attr-${attr}` }, []);
-                        if (aspec.nullable) input.appendChild(el('option', { value: '', textContent: '(none)' }));
-
-                        if (cands.length === 0) {
-                            // Required, but nothing to choose from -> disabled + hint
-                            input.disabled = true;
-                            input.appendChild(el('option', { value: '', textContent: 'No matching entities in document' }));
-                        } else {
-                            for (const ent of cands) {
-                                const label = `${ent.label} (${ent.class})`;
-                                input.appendChild(el('option', { value: ent.id, textContent: label }));
-                            }
-                        }
-                        if (val !== undefined && val !== null) input.value = String(val);
-                        break;
-                    }
-                    default: { // 'text'
-                        input = el('input', { id: `rel-attr-${attr}`, type: 'text' });
-                        if (val !== undefined && val !== null) input.value = String(val);
-                    }
+            // If caller passed an orders object {subject:[], object:[], statement:[]}, prefer that;
+            // otherwise recover from prefill key order; else fall back to spec order.
+            const recovered = { subject: [], object: [], statement: [] };
+            if (prefill && Object.keys(prefill).length) {
+                for (const k of Object.keys(prefill)) {
+                    const g = classifyAttrName(k);
+                    if (g === 'subject') recovered.subject.push(k);
+                    else if (g === 'object') recovered.object.push(k);
+                    else if (g === 'statement') recovered.statement.push(k);
                 }
-
-                row.appendChild(input);
-                // Attach a spot for per-row validation messages
-                row.appendChild(el('small', { className: 'rel-attr-help', style: 'margin-left:8px;color:var(--muted)' }, []));
-                wrap.appendChild(row);
-                any = true;
+                // Append any missing ones in spec order
+                for (const g of ['subject', 'object', 'statement']) {
+                    for (const k of specGroups[g]) if (!recovered[g].includes(k)) recovered[g].push(k);
+                }
             }
 
-            if (!any) wrap.appendChild(el('div', { className: 'empty' }, ['No attributes.']));
+            const useOrders = orders && (orders.subject || orders.object || orders.statement)
+                ? {
+                    subject: (orders.subject || []).filter(n => attrs[n]).concat(specGroups.subject.filter(n => !(orders.subject || []).includes(n))),
+                    object: (orders.object || []).filter(n => attrs[n]).concat(specGroups.object.filter(n => !(orders.object || []).includes(n))),
+                    statement: (orders.statement || []).filter(n => attrs[n]).concat(specGroups.statement.filter(n => !(orders.statement || []).includes(n))),
+                }
+                : (Object.keys(prefill).length ? recovered : specGroups);
+
+            // Containers: Subject list, predicate (fixed), Object list, Statement list
+            const subjBox = el('div', { id: 'rel-attrs-subj', className: 'rel-attrs-group' });
+            const objBox = el('div', { id: 'rel-attrs-obj', className: 'rel-attrs-group' });
+            const stmtBox = el('div', { id: 'rel-attrs-stmt', className: 'rel-attrs-group' });
+
+            // Thin separators
+            const hr = () => el('div', { className: 'rel-attrs-sep', style: 'height:1px;background:var(--border);margin:6px 0;' });
+            // thin seprator for statemt attrss, dashed and lighter color
+            const hrStmt = () => el('div', { className: 'rel-attrs-sep', style: 'height:1px;border-top:1px dashed #5b74a9be;margin:6px 0;' });
+            // ----- SUBJECT GROUP -----
+            for (const attr of useOrders.subject) {
+                const aspec = attrs[attr];
+                if (!aspec) continue;
+
+                // Optional entity with no candidates → skip (unchanged behavior)
+                if (aspec.kind === 'entity') {
+                    const classes = aspec.classes || [];
+                    const cands = state.annotations.filter(a => classes.includes(a.class));
+                    if (cands.length === 0 && aspec.nullable !== false) continue;
+                }
+
+                subjBox.appendChild(buildRelAttrRow(attr, aspec, prefill[attr]));
+            }
+            wrap.appendChild(subjBox);
+
+            // Separator, Predicate (fixed), Separator
+            const hasPred = specGroups.predicate.includes('edge_predicate');
+            if (hasPred) {
+                wrap.appendChild(hr());
+                wrap.appendChild(buildPredicateFixedRow(attrs['edge_predicate'], prefill['edge_predicate']));
+                wrap.appendChild(hr());
+            } else {
+                // If no predicate, still separate subject/object visually
+                wrap.appendChild(hr());
+            }
+
+            // ----- OBJECT GROUP -----
+            for (const attr of useOrders.object) {
+                const aspec = attrs[attr];
+                if (!aspec) continue;
+                if (aspec.kind === 'entity') {
+                    const classes = aspec.classes || [];
+                    const cands = state.annotations.filter(a => classes.includes(a.class));
+                    if (cands.length === 0 && aspec.nullable !== false) continue;
+                }
+                objBox.appendChild(buildRelAttrRow(attr, aspec, prefill[attr]));
+            }
+            wrap.appendChild(objBox);
+
+            // Separator before statement attrs only if any exist
+            const anyStmt = useOrders.statement.some(n => attrs[n]);
+            if (anyStmt) wrap.appendChild(hrStmt());
+
+            // ----- STATEMENT (overall relation) GROUP -----
+            for (const attr of useOrders.statement) {
+                const aspec = attrs[attr];
+                if (!aspec) continue;
+                stmtBox.appendChild(buildRelAttrRow(attr, aspec, prefill[attr]));
+            }
+            if (anyStmt) wrap.appendChild(stmtBox);
+
+            // Wire per-group sorting (no crossing)
+            wireRelAttrSorting(subjBox);
+            wireRelAttrSorting(objBox);
+            wireRelAttrSorting(stmtBox);
+
+            // Contextual labels per group (first stays base; others prefix from above)
+            const refresh = () => {
+                updateRelAttrContextLabelsGroup(subjBox);
+                updateRelAttrContextLabelsGroup(objBox);
+                updateRelAttrContextLabelsGroup(stmtBox);
+            };
+            refresh();
+            wrap.addEventListener('change', (e) => {
+                if (e.target && (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT')) refresh();
+            });
+        }
+
+        // Build one attribute row (draggable inside its group)
+        function buildRelAttrRow(attr, aspec, value) {
+            const row = el('div', {
+                className: 'row',
+                style: 'align-items:center;gap:10px;',
+                dataset: { attr }
+            });
+
+            const handle = el('span', {
+                className: 'drag-handle',
+                title: 'Drag to reorder',
+                style: 'cursor:grab;user-select:none;padding:0 6px;font-size:18px;line-height:1;color:var(--muted);'
+            }, ['⋮⋮']);
+
+            const label = el('label', {
+                className: 'rel-attr-label',
+                style: 'width: 200px; color: var(--muted); display:flex; gap:4px; align-items:center;'
+            }, [el('span', { className: 'label-txt', dataset: { base: attr } }, [attr])]);
+
+            let input = null;
+            const val = value;
+
+            if (aspec.kind === 'enum') {
+                input = el('select', { id: `rel-attr-${attr}` }, aspec.enum.map(v => el('option', { value: v }, [v])));
+                if (aspec.nullable) {
+                    input.insertBefore(el('option', { value: '', textContent: '(none)' }), input.firstChild);
+                    if (val === undefined || val === null || val === '') input.value = '';
+                    else input.value = String(val);
+                } else if (val !== undefined && val !== null) {
+                    input.value = String(val);
+                }
+            } else if (aspec.kind === 'number') {
+                input = el('input', { id: `rel-attr-${attr}`, type: 'number', step: 'any', style: 'width:120px' });
+                if (val !== undefined && val !== null) input.value = String(val);
+            } else if (aspec.kind === 'entity') {
+                const classes = aspec.classes || [];
+                const cands = state.annotations.filter(a => classes.includes(a.class));
+                input = el('select', { id: `rel-attr-${attr}` }, []);
+                if (aspec.nullable) input.appendChild(el('option', { value: '', textContent: '(none)' }));
+                if (cands.length === 0) {
+                    input.disabled = true;
+                    input.appendChild(el('option', { value: '', textContent: 'No matching entities in document' }));
+                } else {
+                    for (const ent of cands) {
+                        const labelTxt = `${ent.label} (${ent.class})`;
+                        input.appendChild(el('option', { value: ent.id, textContent: labelTxt }));
+                    }
+                }
+                if (val === undefined || val === null || val === '') {
+                    if (aspec.nullable) input.value = '';
+                } else {
+                    input.value = String(val);
+                }
+            } else {
+                input = el('input', { id: `rel-attr-${attr}`, type: 'text' });
+                if (val !== undefined && val !== null) input.value = String(val);
+            }
+
+            row.appendChild(handle);
+            row.appendChild(label);
+            row.appendChild(input);
+            return row;
+        }
+
+        // Fixed middle predicate row (no drag handle)
+        function buildPredicateFixedRow(aspec, value) {
+            const row = el('div', { className: 'row', style: 'align-items:center;gap:10px;' });
+            const label = el('label', {
+                className: 'rel-attr-label',
+                style: 'width: 200px; color: var(--muted); display:flex; gap:4px; align-items:center;'
+            }, [el('span', { className: 'label-txt', dataset: { base: 'edge_predicate' } }, ['edge_predicate'])]);
+
+            let input;
+            if (aspec && aspec.kind === 'enum') {
+                input = el('select', { id: `rel-attr-edge_predicate` }, aspec.enum.map(v => el('option', { value: v }, [v])));
+                if (aspec.nullable) {
+                    input.insertBefore(el('option', { value: '', textContent: '(none)' }), input.firstChild);
+                    if (value === undefined || value === null || value === '') input.value = '';
+                    else input.value = String(value);
+                } else if (value !== undefined && value !== null) {
+                    input.value = String(value);
+                }
+            } else {
+                input = el('input', { id: `rel-attr-edge_predicate`, type: 'text' });
+                if (value !== undefined && value !== null) input.value = String(value);
+            }
+
+            // No drag-handle here → non-draggable
+            row.appendChild(el('span', { style: 'width:18px' }, [])); // spacer to align
+            row.appendChild(label);
+            row.appendChild(input);
+            return row;
         }
 
         function renderRelDescription(relName) {
             const spec = state.relationsMeta[relName];
             $('#rel-desc').textContent = (spec && spec.description) ? spec.description : '(no description)';
+        }
+
+        // ADD: make #rel-attrs sortable by dragging the handle
+        function wireRelAttrSorting(container) {
+            let dragRow = null;
+
+            container.querySelectorAll('.row .drag-handle').forEach(handle => {
+                const row = handle.closest('.row');
+                handle.addEventListener('mousedown', () => {
+                    row.setAttribute('draggable', 'true');
+                    row.style.opacity = '0.7';
+                });
+                handle.addEventListener('mouseup', () => {
+                    row.removeAttribute('draggable');
+                    row.style.opacity = '';
+                });
+            });
+
+            container.addEventListener('dragstart', (e) => {
+                const row = e.target.closest('.row');
+                if (!row || !row.hasAttribute('draggable')) { e.preventDefault(); return; }
+                dragRow = row;
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            container.addEventListener('dragover', (e) => {
+                if (!dragRow) return;
+                e.preventDefault();
+                const after = getRowAfterPosition(container, e.clientY);
+                if (after == null) container.appendChild(dragRow);
+                else container.insertBefore(dragRow, after);
+            });
+
+            container.addEventListener('drop', () => {
+                if (!dragRow) return;
+                dragRow.removeAttribute('draggable');
+                dragRow.style.opacity = '';
+                dragRow = null;
+                updateRelAttrContextLabelsGroup(container); // order changed → refresh labels
+            });
+
+            container.addEventListener('dragend', () => {
+                if (dragRow) {
+                    dragRow.removeAttribute('draggable');
+                    dragRow.style.opacity = '';
+                    dragRow = null;
+                    updateRelAttrContextLabelsGroup(container);
+                }
+            });
+
+            function getRowAfterPosition(container, y) {
+                const rows = [...container.querySelectorAll('.row')].filter(r => r !== dragRow);
+                let closest = null;
+                let closestOffset = Number.NEGATIVE_INFINITY;
+                for (const r of rows) {
+                    const rect = r.getBoundingClientRect();
+                    const offset = y - rect.top - rect.height / 2;
+                    if (offset < 0 && offset > closestOffset) {
+                        closestOffset = offset;
+                        closest = r;
+                    }
+                }
+                return closest;
+            }
+        }
+
+        function updateRelAttrContextLabelsGroup(container) {
+            const rows = [...container.querySelectorAll('.row')];
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const labelEl = row.querySelector('.label-txt');
+                const base = labelEl.dataset.base;
+
+                // Don't transform edge_predicate or non subject/object fields here
+                if (base === 'edge_predicate') { labelEl.textContent = base; continue; }
+                const m = /^(subject|object)_(.+)$/.exec(base);
+
+                // First item of the group → always base
+                if (!m || i === 0) { labelEl.textContent = base; continue; }
+
+                // prefix comes from previous row's selection
+                const prevInput = rows[i - 1].querySelector('select, input');
+                let prefix = '';
+                if (prevInput) {
+                    if (prevInput.tagName === 'SELECT') {
+                        const opt = prevInput.options[prevInput.selectedIndex];
+                        prefix = opt ? opt.textContent.trim() : '';
+                    } else {
+                        prefix = (prevInput.value || '').trim();
+                    }
+                    prefix = prefix.replace(/\s*\([^)]*\)\s*$/, ''); // strip " (Class)"
+                }
+
+                if (prefix) {
+                    const suffix = m[2];
+                    labelEl.innerHTML = '';
+                    labelEl.appendChild(el('span', { style: 'color:#55b5ff;font-weight:600' }, [prefix]));
+                    labelEl.appendChild(document.createTextNode('_' + suffix));
+                } else {
+                    labelEl.textContent = base;
+                }
+            }
         }
 
         function entityById(id) { return state.annotations.find(a => a.id === id); }
@@ -915,11 +1168,13 @@
                 sel.value = rel.predicate;
             }
 
-            renderRelAttrFields(sel.value, rel.attrs || {});
+            renderRelAttrFields(sel.value, rel.attrs || {}, rel.attrOrder || null);// {subject:[], object:[], statement:[]}
+
             renderRelDescription(sel.value);
 
             sel.addEventListener('change', () => {
-                renderRelAttrFields(sel.value, {});
+                // start fresh for the new type (spec order)
+                renderRelAttrFields(sel.value, {}, null);
                 renderRelDescription(sel.value);
             });
 
@@ -963,24 +1218,50 @@
                 const role = firstEntityRoleFor(name, right.class);
                 if (role === 'subject') { rel.subject = rel.object; rel.object = null; }
             }
-
-            // Collect relation attributes with kinds
+            // Collect attributes in visible order: subject → edge_predicate → object → statement
             const spec = state.relationsMeta[name] || { attributes: {} };
             const out = {};
-            for (const [attr, aspec] of Object.entries(spec.attributes || {})) {
-                const node = document.querySelector(`#rel-attr-${attr}`);
-                if (!node) continue;
-                const raw = node.value;
+            const subjectRows = Array.from(document.querySelectorAll('#rel-attrs-subj .row'));
+            const objectRows = Array.from(document.querySelectorAll('#rel-attrs-obj .row'));
+            const stmtRows = Array.from(document.querySelectorAll('#rel-attrs-stmt .row'));
 
-                if (raw === '' && aspec.nullable) {
-                    out[attr] = null;
-                } else if (aspec.kind === 'number') {
-                    out[attr] = raw === '' ? null : Number(raw);
-                } else {
-                    // enum, text, entity -> store raw string (entity stores the entity id)
-                    out[attr] = raw;
+            // helper to push rows into `out` preserving order
+            function pushRows(rows) {
+                for (const r of rows) {
+                    const attr = r.dataset.attr;
+                    const aspec = (spec.attributes || {})[attr];
+                    if (!aspec) continue;
+                    const node = r.querySelector(`#rel-attr-${attr}`);
+                    if (!node) continue;
+                    const raw = node.value;
+
+                    if (raw === '' && aspec.nullable) out[attr] = null;
+                    else if (aspec.kind === 'number') out[attr] = raw === '' ? null : Number(raw);
+                    else out[attr] = raw;
                 }
             }
+
+            // subject group
+            pushRows(subjectRows);
+
+            // edge_predicate (fixed middle) if present
+            if ((spec.attributes || {}).edge_predicate) {
+                const node = document.querySelector('#rel-attr-edge_predicate');
+                if (node) out['edge_predicate'] = node.value === '' ? null : node.value;
+            }
+
+            // object group
+            pushRows(objectRows);
+
+            // statement group (overall relation)
+            pushRows(stmtRows);
+
+            // Store current per-group order for next modal open
+            rel.attrOrder = {
+                subject: subjectRows.map(r => r.dataset.attr),
+                object: objectRows.map(r => r.dataset.attr),
+                statement: stmtRows.map(r => r.dataset.attr)
+            };
             rel.attrs = out;
 
             const row = document.querySelector(`.rel-row[data-rel-id="${rel.id}"]`);
@@ -1067,7 +1348,7 @@
                 const res = await API.semanticSuggest({
                     kind: 'relation',
                     query,
-                    top_k: 8,
+                    top_k: 10,
                     threshold: 0.2,
                     subject_class: null,
                     object_class: null
@@ -1198,7 +1479,7 @@
                 btn.classList.add('loading');
                 const query = getChoicesSearchTerm();  // from Choices search
                 const label = $('#inp-label').value.trim(); // the surface form box
-                const res = await API.semanticSuggest({ query, label, top_k: 8, threshold: 0.2 });
+                const res = await API.semanticSuggest({ query, label, top_k: 10, threshold: 0.2 });
                 renderSemanticSuggestions(res.items);
             } catch (e) {
                 console.error(e);
@@ -1420,12 +1701,18 @@
                     const ids = new Set(state.annotations.map(a => a.id));
                     for (const r of saved.relations) {
                         if (ids.has(r.subject) && ids.has(r.object)) {
+                            const keys = Object.keys(r.attributes || {});
+                            const subjectOrder = keys.filter(k => k.startsWith('subject_'));
+                            const objectOrder = keys.filter(k => k.startsWith('object_'));
+                            const statementOrder = keys.filter(k => k !== 'edge_predicate' && !k.startsWith('subject_') && !k.startsWith('object_'));
+
                             state.relations.push({
                                 id: r.id,
                                 predicate: r.predicate || null,
                                 subject: r.subject,
                                 object: r.object,
-                                attrs: r.attributes || {}
+                                attrs: r.attributes || {},
+                                attrOrder: { subject: subjectOrder, object: objectOrder, statement: statementOrder }
                             });
                         }
                     }

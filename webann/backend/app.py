@@ -14,7 +14,7 @@ import tempfile
 import os
 import re
 import textwrap
-from data.utils.relation_utils import RelationshipSpec, FixedChoiceField, FreeTextField, DynamicEntityField
+from relcode.utils.relation_utils import RelationshipSpec, FixedChoiceField, FreeTextField, DynamicEntityField
 
 DATA_DIR = Path(__file__).parent / "data"
 CLASSES_FILE = DATA_DIR / "classes.json"
@@ -24,7 +24,7 @@ PROPOSED_FILE = DATA_DIR / "proposed_classes.py"
 
 # ---------- Files ----------
 RELATIONS_FILE = DATA_DIR / "relations.json"
-RELATION_SPECS_IMPORT = "data.relationship_specs"
+RELATION_SPECS_IMPORT = "relcode.relationship_specs" #should be a "module" name
 # ---- ADD: relation embedding index files (symmetric to class index) ----
 REL_EMBED_INDEX_FILE = DATA_DIR / "rel_index.npz"
 REL_EMBED_META_FILE  = DATA_DIR / "rel_index_meta.json"
@@ -256,7 +256,7 @@ class SuggestIn(BaseModel):
     label: Optional[str] = ""
     subject_class: Optional[str] = None            # <--- ADD
     object_class: Optional[str] = None            # <--- ADD
-    top_k: int = 8
+    top_k: int = 10
     threshold: float = 0.5
 
 class SuggestItem(BaseModel):
@@ -423,17 +423,24 @@ def _validate_and_normalize_relations(payload: SavePayload) -> list[dict]:
                     f"Relation {rel.id} pair ({subj.class_} → {obj.class_}) not allowed for '{rel.predicate}'"
                 )
 
-        # Validate attributes
+        # Validate attributes (preserve incoming order)
         want_attrs = spec.get("attributes", {}) or {}
-        keep: dict[str, any] = {} # type: ignore
+        keep: dict[str, any] = {}   # type: ignore , insertion order preserved in Py3.7+
+
         given = rel.attributes or {}
 
-        for name, aspec in want_attrs.items():
+        # First pass: validate and keep only known attributes in the PROVIDED order
+        for name in given.keys():
+            aspec = want_attrs.get(name)
+            if not aspec:
+                # Unknown attribute → ignore (drop), mirroring previous behavior
+                continue
+
             nullable = bool(aspec.get("nullable", True))
             kind = aspec.get("kind", "text")
             val = given.get(name, None)
 
-            # Required check
+            # Required check for an explicitly-present-but-empty value
             if (val is None or val == "") and not nullable:
                 raise HTTPException(400, f"Relation {rel.id}: missing required attribute '{name}'")
 
@@ -466,8 +473,14 @@ def _validate_and_normalize_relations(payload: SavePayload) -> list[dict]:
                 keep[name] = target.id
 
             else:
-                # 'text' or unknown -> stringify
+                # text (or unknown) → string
                 keep[name] = str(val)
+
+        # Second pass: ensure all required attributes exist (even if client didn't include them at all)
+        for name, aspec in want_attrs.items():
+            if not aspec.get("nullable", True) and name not in keep:
+                raise HTTPException(400, f"Relation {rel.id}: missing required attribute '{name}'")
+
 
         cleaned.append({
             "id": rel.id,

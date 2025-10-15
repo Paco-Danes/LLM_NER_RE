@@ -25,15 +25,16 @@ CHEMICAL_AFFECTS_GENE = RelationshipSpec(
         FixedChoiceField("causal_mechanism", CAUSAL_MECHANISM_QUALIFIER_ENUM, optional=True, schema_name="CausalMechanismQualifier"),
     ],
     dynamic_fields=[ # !!! CLASSES MUST HAVE SAME NAMES OF ENTITIES CLASSES !!!
-        DynamicEntityField("subject_context", classes=["CellType", "CellularComponent", "TissueOrOrgan"], optional=True, schema_name="AnatomicalContext"),
-        DynamicEntityField("object_context", classes=["CellType", "CellularComponent", "TissueOrOrgan"], optional=True, schema_name="AnatomicalContext"),
-        DynamicEntityField("anatomical_context", classes=["CellType", "CellularComponent", "TissueOrOrgan"], optional=True, schema_name="AnatomicalContext"),
+        DynamicEntityField("subject_context", classes=["CellType", "CellLine", "CellularComponent", "TissueOrOrgan"], optional=True, schema_name="AnatomicalContext"),
+        DynamicEntityField("object_context", classes=["CellType", "CellLine", "CellularComponent", "TissueOrOrgan"], optional=True, schema_name="AnatomicalContext"),
+        DynamicEntityField("anatomical_context", classes=["CellType", "CellLine", "CellularComponent", "TissueOrOrgan"], optional=True, schema_name="AnatomicalContext"),
         DynamicEntityField("species_context", classes=["OrganismTaxon"], optional=True, schema_name="SpeciesContext"),
     ],
 )
 
 CHEMICAL_TO_PATHWAY = RelationshipSpec(
     name="ChemicalToPathway",
+    
     description="An interaction between a chemical entity and a biological process or pathway.",
     subject_classes=["SmallMolecule"],
     object_classes=["Pathway"],
