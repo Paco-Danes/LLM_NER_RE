@@ -295,7 +295,7 @@ def _register_all_enums_for_candidates(
         # fixed fields
         for ff in c.spec.fixed_fields:
             if isinstance(ff, FixedChoiceField):
-                enum_reg.register(ff.choices, preferred_schema_name=ff.schema_name)
+                enum_reg.register(ff.choices, preferred_schema_name=getattr(ff.choices, "__name__", None))
         # dynamic fields (only realized / non-empty)
         for rd in c.dynamic_realized:
             enum_reg.register(rd.choices, preferred_schema_name=rd.field.schema_name)

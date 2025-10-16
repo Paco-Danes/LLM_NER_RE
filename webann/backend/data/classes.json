@@ -88,11 +88,37 @@
         "attributes": {}
     },
     "PhenotypicFeature": {
-        "description": "An observable trait, characteristic, or phenotype at organism, tissue, or cellular level.\nSynonyms: sign, symptom, phenotype, trait, endophenotype\nExamples: \"hypertension\", \"hypercholesterolemia\", \"dysplasia\", \"reduced growth rate\", \"anemia\", \"microcephaly\", \"insulin resistance\".",
+        "description": "An observable trait, characteristic, or phenotype at organism, tissue, or cellular level. It is constructed broadly as any kind of quality of an organism part, a collection of these qualities, or a change in quality or qualities (e.g. abnormally increased temperature).\nSynonyms: sign, symptom, phenotype, trait, endophenotype\nExamples: \"hypertension\", \"hypercholesterolemia\", \"dysplasia\", \"reduced growth rate\", \"anemia\", \"microcephaly\", \"insulin resistance\".",
         "attributes": {}
     },
-    "SmallMolecule": {
-        "description": "Molecular entity characterized by availability in small-molecule databases of SMILES, InChI, IUPAC, with any valid chemical representation even not strictly molecular (e.g sodium ion)\nExamples: \"glucose\", \"ATP\", \"Cholesterol\", \"Ethanol\", \"NADH\", \"dopamine\", \"lactic acid\", \"Caffeine\", \"Oxygen\".",
+    "GeneticInheritance": {
+        "description": "The pattern or 'mode' in which a particular genetic trait or disorder is passed from one generation to the next.\nExamples: \"autosomal dominant\", \"autosomal recessive\".",
+        "attributes": {
+            "type": {
+                "enum": [
+                    "autosomal dominant",
+                    "autosomal recessive",
+                    "X-linked dominant",
+                    "X-linked recessive",
+                    "Y-linked",
+                    "mitochondrial",
+                    "polygenic",
+                    "multifactorial"
+                ],
+                "nullable": true
+            }
+        }
+    },
+    "MolecularEntity": {
+        "description": "A chemical entity composed of individual or covalently bonded atoms. Also includes nucleic acid entities (gene databases of nucleotide-based sequence) and small-molecules present in databases of SMILES, InChI, IUPAC, or other unambiguous representation of its structure. Even if it is not strictly molecular (e.g., sodium ion)\nExamples: \"glucose\", \"ATP\", \"cAMP\", \"ethanol\", \"hexaclorobenzene\", \"chloride ion\", \"caffeine\".",
+        "attributes": {}
+    },
+    "MolecularMixture": {
+        "description": "A chemical mixture composed of two or more molecular entities with known concentration and stoichiometry.\nExamples: \"blood plasma\", \"cell culture media\", \"seawater\", \"urine\", \"saliva\".",
+        "attributes": {}
+    },
+    "Food": {
+        "description": "A substance whose context implies it is consumed or eaten by a living organism as a source of nutrition.\nExamples: \"apple\", \"bread\", \"milk\", \"rice\", \"chicken\", \"broccoli\", \"salmon\", \"yogurt\", \"spinach\", \"almonds\".",
         "attributes": {}
     },
     "TissueOrOrgan": {
@@ -108,7 +134,7 @@
         "attributes": {}
     },
     "BrainRegion": {
-        "description": "A distinct anatomical region of the brain, involved in specific neural functions or processes.\nExamples: \"hippocampus\", \"amygdala\", \"cerebral cortex\", \"hindbrain\", \"midbrain\", \"thalamus\", \"cerebellum\".",
+        "description": "A distinct anatomical region or structure of the brain, involved in specific neural functions or processes.\nExamples: \"hippocampus\", \"amygdala\", \"cerebral cortex\", \"hindbrain\", \"midbrain\", \"thalamus\", \"cerebellum\".",
         "attributes": {}
     },
     "BiologicalProcess": {
@@ -123,8 +149,8 @@
         "description": "A submicroscopic infectious agent consisting of nucleic acid enclosed in a protein coat, sometimes with a lipid envelope, that replicates only inside host cells.\nExamples: \"Influenza A virus\", \"SARS-CoV-2\", \"Human papillomavirus 16\", \"HIV-1\", \"Hepatitis B virus\".",
         "attributes": {}
     },
-    "CellularOrganism": {
-        "description": "Any life form made up of one or more cells, including animals, plants, fungi, and protists.\nExamples: \"Homo sapiens\", \"Arabidopsis thaliana\", \"Saccharomyces cerevisiae\", \"Caenorhabditis elegans\", \"Drosophila melanogaster\".",
+    "OrganismTaxon": {
+        "description": "A classification of a set of organisms. Can also be used to represent strains or subspecies.\nExamples: \"Homo Sapiens\", \"Bacteria\", \"Arabidopsis thaliana\", \"Saccharomyces cerevisiae\", \"Caenorhabditis elegans\", \"Drosophila melanogaster\".",
         "attributes": {}
     },
     "Metabolite": {

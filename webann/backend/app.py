@@ -22,6 +22,11 @@ TEXTS_FILE = DATA_DIR / "texts.json"
 ANNOT_FILE = DATA_DIR / "annotations.jsonl"
 PROPOSED_FILE = DATA_DIR / "proposed_classes.py"
 
+# ---------- NEW: files/paths for propose-relationship ----------
+FIELD_DESC_FILE = DATA_DIR / "field_descriptions.json"
+PROPOSED_REL_FILE = DATA_DIR / "proposed_rel.py"
+ENUMS_IMPORT = "relcode.utils.my_enums"
+
 # ---------- Files ----------
 RELATIONS_FILE = DATA_DIR / "relations.json"
 RELATION_SPECS_IMPORT = "relcode.relationship_specs" #should be a "module" name
@@ -65,6 +70,71 @@ class SavePayload(BaseModel):
     text: str
     entities: List[Entity]
     relations: List[RelationEdge] = []   # <--- ADD
+
+    # ---- ADD: pydantic models ----
+class SuggestIn(BaseModel):
+    kind: Literal["class", "relation"] = "class"   # <--- ADD
+    query: Optional[str] = ""
+    label: Optional[str] = ""
+    subject_class: Optional[str] = None            # <--- ADD
+    object_class: Optional[str] = None            # <--- ADD
+    top_k: int = 10
+    threshold: float = 0.5
+
+class SuggestItem(BaseModel):
+    class_name: str
+    score: float
+    description: Optional[str] = None
+
+class SuggestOut(BaseModel):
+    ready: bool
+    total: int
+    items: List[SuggestItem]
+
+class AttrSpec(BaseModel):
+    name: str
+    type: Literal[
+        "str", "int", "float", "bool",
+        "literal", "list[str]", "list[int]", "list[float]", "list[bool]"
+    ] = "str"
+    optional: bool = False
+    description: Optional[str] = ""
+    literal_values: Optional[List[str]] = None  # required if type == literal
+
+class ProposedClassIn(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    attributes: List[AttrSpec] = []
+
+# ---------- NEW: models for propose-relationship ----------
+class EnumCreate(BaseModel):
+    name: Optional[str] = None                # if not provided, we'll generate
+    values: List[str] = []
+
+class EnumAddIn(BaseModel):
+    name: str
+    values: List[str]
+
+class ProposedRelField(BaseModel):
+    name: str
+    kind: Literal["fixed", "dynamic", "free_text"] = "fixed"
+    optional: bool = True
+    description: Optional[str] = ""
+    # fixed
+    enum_name: Optional[str] = None           # choose an existing enum
+    new_enum: Optional[EnumCreate] = None     # or create a new one
+    # dynamic
+    classes: Optional[List[str]] = None
+    # free-text
+    text_type: Optional[Literal["text", "number"]] = "text"
+
+class ProposedRelationIn(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    subject_classes: List[str]
+    object_classes: List[str]
+    predicate_choices: Optional[List[str]] = None
+    fields: List[ProposedRelField] = []
 
 # ---------- Helpers ----------
 def load_json(path: Path):
@@ -248,26 +318,6 @@ def _encode_query(texts: List[str]):
     texts = [("query: " + t.strip()) if t else "query:" for t in texts]
     vecs = model.encode(texts, normalize_embeddings=True)
     return vecs.astype("float32")
-
-# ---- ADD: pydantic models ----
-class SuggestIn(BaseModel):
-    kind: Literal["class", "relation"] = "class"   # <--- ADD
-    query: Optional[str] = ""
-    label: Optional[str] = ""
-    subject_class: Optional[str] = None            # <--- ADD
-    object_class: Optional[str] = None            # <--- ADD
-    top_k: int = 10
-    threshold: float = 0.5
-
-class SuggestItem(BaseModel):
-    class_name: str
-    score: float
-    description: Optional[str] = None
-
-class SuggestOut(BaseModel):
-    ready: bool
-    total: int
-    items: List[SuggestItem]
 
 # ---- ADD: endpoints ----
 @app.get("/api/semantic/status")
@@ -521,22 +571,6 @@ async def save_annotations(payload: SavePayload, overwrite: bool = Query(False))
     write_annotations_jsonl(ANNOT_FILE, items)
     return {"ok": True, "overwritten": idx is not None}
 
-
-class AttrSpec(BaseModel):
-    name: str
-    type: Literal[
-        "str", "int", "float", "bool",
-        "literal", "list[str]", "list[int]", "list[float]", "list[bool]"
-    ] = "str"
-    optional: bool = False
-    description: Optional[str] = ""
-    literal_values: Optional[List[str]] = None  # required if type == literal
-
-class ProposedClassIn(BaseModel):
-    name: str
-    description: Optional[str] = ""
-    attributes: List[AttrSpec] = []
-
 def _ensure_proposed_file():
     """Create proposed_classes.py with a minimal header if missing."""
     if PROPOSED_FILE.exists():
@@ -623,6 +657,320 @@ async def propose_class(payload: ProposedClassIn):
     with PROPOSED_FILE.open("a", encoding="utf-8") as f:
         f.write(code)
     return {"ok": True, "file": str(PROPOSED_FILE), "bytes_written": len(code)}
+
+# ---------- NEW: helpers for propose-relationship ----------
+
+def _ensure_proposed_rel_file():
+    """Create proposed_rel.py with a minimal header if missing."""
+    if PROPOSED_REL_FILE.exists():
+        return
+    PROPOSED_REL_FILE.parent.mkdir(parents=True, exist_ok=True)
+    header = textwrap.dedent(
+        """
+        # Auto-generated proposed relationships
+        from __future__ import annotations
+        from relcode.utils.relation_utils import RelationshipSpec, FixedChoiceField, FreeTextField, DynamicEntityField
+        # your enums live here
+        from relcode.utils.my_enums import *
+        """
+    )
+    PROPOSED_REL_FILE.write_text(header + "\n\n", encoding="utf-8")
+
+
+def _camel_to_const_name(s: str) -> str:
+    import re as _re
+    s1 = _re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", s)
+    s2 = _re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1)
+    return s2.upper()
+
+
+def _sanitize_py_str(s: str) -> str:
+    return json.dumps(s or "")  # ensures proper quoting/escaping
+
+
+def _load_field_descriptions() -> dict:
+    if not FIELD_DESC_FILE.exists():
+        return {"general_qualifiers": {}}
+    try:
+        return json.loads(FIELD_DESC_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {"general_qualifiers": {}}
+
+
+def _write_json_atomic(path: Path, obj: dict):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as tmp:
+        json.dump(obj, tmp, ensure_ascii=False, indent=2)
+        tmp_path = tmp.name
+    os.replace(tmp_path, path)
+
+
+def _list_enums_from_module() -> dict:
+    """Return {NAME: [values,...]} from relcode.utils.my_enums."""
+    try:
+        mod = importlib.import_module(ENUMS_IMPORT)
+        # reload so new appends are visible during dev
+        try:
+            mod = importlib.reload(mod)  # type: ignore
+        except Exception:
+            pass
+    except Exception as e:
+        print(f"WARN: cannot import {ENUMS_IMPORT}: {e}")
+        return {}
+
+    out = {}
+    for k, v in vars(mod).items():
+        if not isinstance(k, str) or not k.isupper() or k.startswith("_"):
+            continue
+        if isinstance(v, (list, tuple, set)):
+            out[k] = [str(x) for x in list(v)]
+    return out
+
+
+def _append_new_enums(new_enums: dict[str, list[str]]) -> list[str]:
+    """Append simple list-style enums to my_enums.py. Returns list of names written."""
+    if not new_enums:
+        return []
+    try:
+        mod = importlib.import_module(ENUMS_IMPORT)
+        enum_file = Path(getattr(mod, "__file__", ""))
+    except Exception as e:
+        raise HTTPException(500, f"Could not locate my_enums.py via {ENUMS_IMPORT}: {e}")
+
+    lines = ["\n\n# ---- Auto-added via propose_relation ----\n"]
+    for name, vals in new_enums.items():
+        lines.append(f"# {name}\n")
+        lines.append(f"{name} = [\n")
+        for v in vals:
+            lines.append(f"    {json.dumps(str(v))},\n")
+        lines.append("]\n")
+    with enum_file.open("a", encoding="utf-8") as f:
+        f.write("".join(lines))
+    return list(new_enums.keys())
+
+
+def _render_relationship_code(
+    *,
+    rel_name: str,
+    description: str,
+    subject_classes: list[str],
+    object_classes: list[str],
+    predicate_choices: list[str] | None,
+    compiled_fields: list[dict],  # each: {name, kind, optional, enum_name?, text_type?, classes?}
+) -> str:
+    """Return a complete RelationshipSpec definition block as a string."""
+    const_var = _camel_to_const_name(rel_name)
+
+    def fmt_list(items: list[str]) -> str:
+        return "[" + ", ".join(json.dumps(s) for s in items) + "]"
+
+    fixed_lines: list[str] = []
+    dyn_lines: list[str] = []
+
+    for f in compiled_fields:
+        nm = f["name"]
+        opt = bool(f.get("optional", True))
+        if f["kind"] == "fixed":
+            enum_name = f.get("enum_name")
+            if not enum_name:
+                raise HTTPException(400, f"Field '{nm}' is fixed but missing enum_name")
+            args = [json.dumps(nm), enum_name]
+            kwargs = [f"optional={str(opt)}"]
+            fixed_lines.append(f"        FixedChoiceField({', '.join(args + kwargs)})")
+        elif f["kind"] == "free_text":
+            args = [json.dumps(nm)]
+            kwargs = [f"optional={str(opt)}"]
+            if f.get("text_type") == "number":
+                kwargs.append("typ=float")
+            fixed_lines.append(f"        FreeTextField({', '.join(args + kwargs)})")
+        elif f["kind"] == "dynamic":
+            classes = f.get("classes") or []
+            args = [json.dumps(nm), f"classes={fmt_list(classes)}"]
+            kwargs = [f"optional={str(opt)}"]
+            dyn_lines.append(f"        DynamicEntityField({', '.join(args + kwargs)})")
+        else:
+            raise HTTPException(400, f"Unsupported field kind: {f['kind']}")
+
+    parts: list[str] = []
+    parts.append(f"{const_var} = RelationshipSpec(")
+    parts.append(f"    name={json.dumps(rel_name)},")
+    parts.append(f"    description={_sanitize_py_str(description)},")
+    parts.append(f"    subject_classes={fmt_list(subject_classes)},")
+    parts.append(f"    object_classes={fmt_list(object_classes)},")
+    if predicate_choices:
+        parts.append(f"    predicate_choices={fmt_list(predicate_choices)},")
+    if fixed_lines:
+        parts.append("    fixed_fields=[")
+        parts.extend(fixed_lines)
+        parts.append("    ],")
+    if dyn_lines:
+        parts.append("    dynamic_fields=[")
+        parts.extend(dyn_lines)
+        parts.append("    ],")
+    parts.append(")\n")
+
+    return "\n" + "\n".join(parts)
+
+# ---------- NEW: endpoints for propose-relationship ----------
+@app.get("/api/enums")
+async def get_enums():
+    return _list_enums_from_module()
+
+import re as _re
+
+@app.post("/api/enums")
+async def create_enum(payload: EnumAddIn):
+    # normalize & validate name
+    raw = (payload.name or "").strip()
+    name = _re.sub(r"[^A-Za-z0-9_]+", "_", raw).upper()
+    if not name.endswith("_ENUM"):
+        name = name + "_ENUM"
+    if not _re.match(r"^[A-Z_][A-Z0-9_]*$", name):
+        raise HTTPException(400, f"Invalid enum name after normalization: {name}")
+
+    values = [str(v).strip() for v in (payload.values or []) if str(v).strip()]
+    if not values:
+        raise HTTPException(400, "At least one value is required.")
+
+    # de-dup, preserve order
+    seen = set()
+    uniq_vals = []
+    for v in values:
+        if v not in seen:
+            uniq_vals.append(v)
+            seen.add(v)
+
+    existing = _list_enums_from_module()
+    if name in existing:
+        raise HTTPException(409, f"Enum '{name}' already exists.")
+
+    created = _append_new_enums({name: uniq_vals})
+    if not created:
+        raise HTTPException(500, "Failed to append enum to my_enums.py")
+
+    # return fresh map (handy for the UI)
+    return {"ok": True, "name": name, "values": uniq_vals}
+
+
+@app.get("/api/field-descriptions")
+async def get_field_descriptions():
+    return _load_field_descriptions()
+
+
+@app.post("/api/proposed-relations")
+async def propose_relation(payload: ProposedRelationIn):
+    # Validate relation name (CamelCase)
+    if not re.match(r"^[A-Z][A-Za-z0-9_]*$", payload.name):
+        raise HTTPException(400, "Invalid relation name (use CamelCase, e.g., ChemicalAffectsGene)")
+
+    # Validate subject/object classes (must be known)
+    classes_meta = load_json(CLASSES_FILE)
+    known_classes = set(classes_meta.keys())
+    if not payload.subject_classes or not all(c in known_classes for c in payload.subject_classes):
+        raise HTTPException(400, f"Unknown subject class in {payload.subject_classes}")
+    if not payload.object_classes or not all(c in known_classes for c in payload.object_classes):
+        raise HTTPException(400, f"Unknown object class in {payload.object_classes}")
+
+    # Prepare enums and compile field specs
+    existing_enums = _list_enums_from_module()
+    to_create: dict[str, list[str]] = {}
+    compiled: list[dict] = []
+
+    # For relation-specific field descriptions update
+    fd = _load_field_descriptions()
+    general = set((fd.get("general_qualifiers") or {}).keys())
+    rel_specific_added = {}
+
+    def gen_enum_name(default_rel: str, field_name: str) -> str:
+        base = f"{_camel_to_const_name(default_rel)}_{field_name.upper()}_ENUM"
+        # Avoid collision with existing or to-be-created
+        candidate = base
+        i = 2
+        while candidate in existing_enums or candidate in to_create:
+            candidate = f"{base}_{i}"
+            i += 1
+        return candidate
+
+    for f in payload.fields:
+        if not re.match(r"^[a-z_][a-z0-9_]*$", f.name):
+            raise HTTPException(400, f"Invalid field name '{f.name}' (use snake_case)")
+
+        item: dict = {
+            "name": f.name,
+            "kind": f.kind,
+            "optional": bool(f.optional),
+        }
+
+        if f.kind == "fixed":
+            enum_name = f.enum_name
+            if f.new_enum and f.new_enum.values:
+                # generate or use provided name
+                new_name = (f.new_enum.name or gen_enum_name(payload.name, f.name)).upper()
+                # normalize suffix
+                if not new_name.endswith("_ENUM"):
+                    new_name = new_name + "_ENUM"
+                vals = [str(v).strip() for v in (f.new_enum.values or []) if str(v).strip()]
+                if not vals:
+                    raise HTTPException(400, f"New enum for field '{f.name}' has no values")
+                to_create[new_name] = vals
+                enum_name = new_name
+
+            if not enum_name:
+                raise HTTPException(400, f"Field '{f.name}': choose an existing enum or create a new one")
+
+            item["enum_name"] = enum_name
+
+        elif f.kind == "dynamic":
+            if not f.classes:
+                raise HTTPException(400, f"Field '{f.name}' is dynamic but has no classes")
+            item["classes"] = list(dict.fromkeys([str(c) for c in f.classes]))
+
+        elif f.kind == "free_text":
+            item["text_type"] = f.text_type or "text"
+        else:
+            raise HTTPException(400, f"Unsupported field kind: {f.kind}")
+
+        compiled.append(item)
+
+        # Track relation-specific descriptions (only for non-general names)
+        if f.description and f.name not in general:
+            rel_specific_added[f.name] = f.description
+
+    # Write enums first (so names exist in the spec file for human copy/paste)
+    created_names = _append_new_enums(to_create)
+
+    # Append / update field_descriptions.json
+    if rel_specific_added:
+        cur = _load_field_descriptions()
+        cur.setdefault(payload.name, {})
+        cur[payload.name].update(rel_specific_added)
+        _write_json_atomic(FIELD_DESC_FILE, cur)
+
+    # Render spec block and append to proposed_rel.py
+    _ensure_proposed_rel_file()
+    existing = PROPOSED_REL_FILE.read_text(encoding="utf-8") if PROPOSED_REL_FILE.exists() else ""
+    # avoid duplicate by name=
+    if f"name=\"{payload.name}\"" in existing:
+        raise HTTPException(409, f"A proposed relation named '{payload.name}' already exists in proposed_rel.py")
+
+    code = _render_relationship_code(
+        rel_name=payload.name,
+        description=payload.description or "",
+        subject_classes=list(payload.subject_classes),
+        object_classes=list(payload.object_classes),
+        predicate_choices=(payload.predicate_choices or None),
+        compiled_fields=compiled,
+    )
+    with PROPOSED_REL_FILE.open("a", encoding="utf-8") as f:
+        f.write(code)
+
+    return {
+        "ok": True,
+        "proposed_file": str(PROPOSED_REL_FILE),
+        "enums_created": created_names,
+        "relation_specific_fields_added": list(rel_specific_added.keys()),
+        "bytes_written": len(code),
+    }
 
 # ---------- Dev convenience ----------
 @app.get("/")

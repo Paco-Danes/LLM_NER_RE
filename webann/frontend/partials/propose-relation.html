@@ -1,0 +1,69 @@
+<div class="toolbar">
+    <button id="btn-propose-rel-back" class="ghost">← Back to Annotation</button>
+    <button id="btn-propose-enum" class="ghost">+ Create new enum</button>
+    <div class="spacer"></div>
+    <button id="btn-propose-rel-save" class="primary">Save Relationship</button>
+</div>
+
+<div class="proposewrap">
+    <div class="field">
+        <label>Relation Name</label>
+        <input id="pr-name" type="text" placeholder="ChemicalAffectsGene" />
+        <small>Use CamelCase</small>
+    </div>
+
+
+    <div class="field">
+        <label>Description</label>
+        <textarea id="pr-desc" rows="6" placeholder="Describe the relation (what it means, intended usage)"></textarea>
+    </div>
+
+
+    <div class="grid-2">
+        <div class="field">
+            <label>Subject classes</label>
+            <select id="pr-subject" multiple></select>
+            <small>Select one or more allowed subject entity classes.</small>
+        </div>
+        <div class="field">
+            <label>Object classes</label>
+            <select id="pr-object" multiple></select>
+            <small>Select one or more allowed object entity classes.</small>
+        </div>
+    </div>
+
+
+    <div class="field">
+        <label>Predicate choices (optional)</label>
+        <input id="pr-preds" type="text" placeholder="comma,separated,values e.g. affects,causes" />
+    </div>
+
+
+    <div class="field">
+        <label>Attributes / Qualifiers</label>
+        <div class="row" style="gap:8px; align-items:center;">
+            <button type="button" id="pr-add-defaults" class="ghost">+ Add common qualifiers</button>
+            <button type="button" id="pr-add-field" class="ghost">+ Add field</button>
+            <button type="button" id="pr-reset-fields" class="warn" style="padding: 7px 10px;">⟳ Reset fields</button>
+        </div>
+
+
+        <div id="pr-attrs">
+            <div class="attr-head pr-grid">
+                <span>FIELD NAME</span>
+                <span>TYPE</span>
+                <span>ENUM</span> <!-- was CONFIG -->
+                <span>OPT?</span>
+                <span>DESCRIPTION</span>
+                <span></span>
+            </div>
+            <div id="pr-attr-list"></div>
+        </div>
+    </div>
+</div>
+
+
+<datalist id="pr-qual-suggestions"></datalist>
+
+
+<div class="footer" id="propose-rel-status">Fill out the relation and click Save.</div>

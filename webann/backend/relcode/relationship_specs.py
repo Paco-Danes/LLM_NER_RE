@@ -1,6 +1,7 @@
 from .utils.relation_utils import RelationshipSpec, FixedChoiceField, FreeTextField, DynamicEntityField, CandidateSpec, build_relationship_models
-# your enums/constants live here
 from .utils.my_enums import *
+
+# your enums live here
 
 # ----------------------------
 # Example specs (yours)
@@ -13,28 +14,27 @@ CHEMICAL_AFFECTS_GENE = RelationshipSpec(
     object_classes=["Gene", "Protein", "RnaTranscript"],
     predicate_choices=["affects", "causes"],
     fixed_fields=[
-        FixedChoiceField("subject_form_or_variant", CHEMICAL_OR_GENE_OR_GENE_PRODUCT_FORM_OR_VARIANT_ENUM, optional=True, schema_name="ChemicalOrGeneOrGeneProductFormOrVariant"),
-        FixedChoiceField("subject_part", GENE_OR_GENE_PRODUCT_OR_CHEMICAL_PART_QUALIFIER_ENUM, optional=True, schema_name="GeneGeneProductOrChemicalPartQualifier"),
-        FixedChoiceField("subject_derivative", CHEMICAL_ENTITY_DERIVATIVE_ENUM, optional=True, schema_name="ChemicalEntityDerivative"),
-        FixedChoiceField("subject_aspect", GENE_OR_GENE_PRODUCT_OR_CHEMICAL_ENTITY_ASPECT_ENUM, optional=True, schema_name="GeneGeneProductOrChemicalEntityAspect"),
-        FixedChoiceField("subject_direction", DIRECTION_QUALIFIER_ENUM, optional=True, schema_name="DirectionQualifier"),
-        FixedChoiceField("object_form_or_variant", CHEMICAL_OR_GENE_OR_GENE_PRODUCT_FORM_OR_VARIANT_ENUM, optional=True, schema_name="ChemicalOrGeneOrGeneProductFormOrVariant"),
-        FixedChoiceField("object_part", GENE_OR_GENE_PRODUCT_OR_CHEMICAL_PART_QUALIFIER_ENUM, optional=True, schema_name="GeneGeneProductOrChemicalPartQualifier"),
-        FixedChoiceField("object_aspect", GENE_OR_GENE_PRODUCT_OR_CHEMICAL_ENTITY_ASPECT_ENUM, optional=True, schema_name="GeneGeneProductOrChemicalEntityAspect"),
-        FixedChoiceField("object_direction", DIRECTION_QUALIFIER_ENUM, optional=True, schema_name="DirectionQualifier"),
-        FixedChoiceField("causal_mechanism", CAUSAL_MECHANISM_QUALIFIER_ENUM, optional=True, schema_name="CausalMechanismQualifier"),
+        FixedChoiceField("subject_form_or_variant", CHEMICAL_OR_GENE_OR_GENE_PRODUCT_FORM_OR_VARIANT_ENUM, optional=True),
+        FixedChoiceField("subject_part", GENE_OR_GENE_PRODUCT_OR_CHEMICAL_PART_QUALIFIER_ENUM, optional=True),
+        FixedChoiceField("subject_derivative", CHEMICAL_ENTITY_DERIVATIVE_ENUM, optional=True),
+        FixedChoiceField("subject_aspect", GENE_OR_GENE_PRODUCT_OR_CHEMICAL_ENTITY_ASPECT_ENUM, optional=True),
+        FixedChoiceField("subject_direction", DIRECTION_QUALIFIER_ENUM, optional=True),
+        FixedChoiceField("object_form_or_variant", CHEMICAL_OR_GENE_OR_GENE_PRODUCT_FORM_OR_VARIANT_ENUM, optional=True),
+        FixedChoiceField("object_part", GENE_OR_GENE_PRODUCT_OR_CHEMICAL_PART_QUALIFIER_ENUM, optional=True),
+        FixedChoiceField("object_aspect", GENE_OR_GENE_PRODUCT_OR_CHEMICAL_ENTITY_ASPECT_ENUM, optional=True),
+        FixedChoiceField("object_direction", DIRECTION_QUALIFIER_ENUM, optional=True),
+        FixedChoiceField("causal_mechanism", CAUSAL_MECHANISM_QUALIFIER_ENUM, optional=True),
     ],
-    dynamic_fields=[ # !!! CLASSES MUST HAVE SAME NAMES OF ENTITIES CLASSES !!!
-        DynamicEntityField("subject_context", classes=["CellType", "CellLine", "CellularComponent", "TissueOrOrgan"], optional=True, schema_name="AnatomicalContext"),
-        DynamicEntityField("object_context", classes=["CellType", "CellLine", "CellularComponent", "TissueOrOrgan"], optional=True, schema_name="AnatomicalContext"),
-        DynamicEntityField("anatomical_context", classes=["CellType", "CellLine", "CellularComponent", "TissueOrOrgan"], optional=True, schema_name="AnatomicalContext"),
-        DynamicEntityField("species_context", classes=["OrganismTaxon"], optional=True, schema_name="SpeciesContext"),
+    dynamic_fields=[
+        DynamicEntityField("subject_context", classes=["CellType", "CellLine", "CellularComponent", "TissueOrOrgan"], optional=True),
+        DynamicEntityField("object_context", classes=["CellType", "CellLine", "CellularComponent", "TissueOrOrgan"], optional=True),
+        DynamicEntityField("anatomical_context", classes=["CellType", "CellLine", "CellularComponent", "TissueOrOrgan"], optional=True),
+        DynamicEntityField("species_context", classes=["OrganismTaxon"], optional=True),
     ],
 )
 
 CHEMICAL_TO_PATHWAY = RelationshipSpec(
     name="ChemicalToPathway",
-    
     description="An interaction between a chemical entity and a biological process or pathway.",
     subject_classes=["SmallMolecule"],
     object_classes=["Pathway"],
@@ -58,17 +58,17 @@ DISEASE_TO_PHENOTYPIC_FEATURE = RelationshipSpec(
     predicate_choices=["has_phenotype"],
     fixed_fields=[
         FreeTextField("subject_aspect", optional=True), # e.g stability, abundance, expression, exposure
-        FixedChoiceField("subject_direction", DIRECTION_QUALIFIER_ENUM, optional=True, schema_name="DirectionQualifier"),
+        FixedChoiceField("subject_direction", DIRECTION_QUALIFIER_ENUM, optional=True),
         FreeTextField("object_aspect", optional=True), # e.g stability, abundance, expression, exposure
-        FixedChoiceField("object_direction", DIRECTION_QUALIFIER_ENUM, optional=True, schema_name="DirectionQualifier"),
+        FixedChoiceField("object_direction", DIRECTION_QUALIFIER_ENUM, optional=True),
         FreeTextField("frequency", optional=True), # e.g. "80% of patients", "very common", "rarely"
     ],
     dynamic_fields=[
-        DynamicEntityField("disease_context", classes=["Disease"], optional=True, schema_name="DiseaseContext")
+        DynamicEntityField("disease_context", classes=["Disease"], optional=True)
     ]
-    )
+)
 
-GENE_TO_GENE_COEXPRESSION = RelationshipSpec( # CHECK !!!!!
+GENE_TO_GENE_COEXPRESSION = RelationshipSpec( # CHECK !!!!! 
     name="GeneToGeneCoexpression",
     description="Indicates that two genes or gene products are co-expressed, generally under the same conditions.",
     subject_classes=["Gene", "Protein", "RnaTranscript"],
@@ -78,11 +78,10 @@ GENE_TO_GENE_COEXPRESSION = RelationshipSpec( # CHECK !!!!!
         FreeTextField("quantifier", optional=True), # e.g. Optional quantitative value indicating degree of expression.
     ],
     dynamic_fields=[
-        DynamicEntityField("expression_site", classes=["CellType", "CellularComponent", "TissueOrOrgan"], optional=True, schema_name="ExpressionSite"),
-        DynamicEntityField("stage_qualifier", classes=["MouseDevelopmentalTimepoint", "HumanDevelopmentalTimepoint"], optional=True, schema_name="StageQualifier"),
+        DynamicEntityField("expression_site", classes=["CellType", "CellularComponent", "TissueOrOrgan"], optional=True),
+        DynamicEntityField("stage_qualifier", classes=["MouseDevelopmentalTimepoint", "HumanDevelopmentalTimepoint"], optional=True),
     ]
 )
-
 
 DEFAULT_SPECS: list[RelationshipSpec] = [
     CHEMICAL_AFFECTS_GENE,

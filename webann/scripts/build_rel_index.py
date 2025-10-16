@@ -19,7 +19,6 @@ def main():
     args = p.parse_args()
 
     REL = json.loads(Path(args.relations).read_text(encoding="utf-8"))
-
     model = SentenceTransformer(args.model)
 
     labels, texts, meta = [], [], {}
@@ -28,7 +27,7 @@ def main():
         desc = (spec.get("description") or "").strip()
         subj = ", ".join(spec.get("subject", []))
         obj = ", ".join(spec.get("object", []))
-        texts.append(f"relation: {name}. description: {desc}. subject: {subj}. object: {obj}.")
+        texts.append(f"relation: {name}. {desc}. subject: {subj}. object: {obj}.")
         meta[name] = {"description": desc, "subject": spec.get("subject", []), "object": spec.get("object", [])}
 
     embs = model.encode(texts, normalize_embeddings=True, show_progress_bar=True)

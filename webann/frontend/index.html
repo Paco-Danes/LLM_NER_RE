@@ -170,6 +170,35 @@
                 if (!r.ok) throw new Error(await r.text());
                 return r.json();
             },
+            // NEW
+            async getEnums() {
+                const r = await fetch(`${API_BASE}/api/enums`);
+                if (!r.ok) throw new Error('Failed to load enums');
+                return r.json();
+            },
+
+            async createEnum(payload) {
+                const r = await fetch(`${API_BASE}/api/enums`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!r.ok) throw new Error(await r.text());
+                return r.json();
+            },
+
+            async getFieldDescriptions() {
+                const r = await fetch(`${API_BASE}/api/field-descriptions`);
+                if (!r.ok) throw new Error('Failed to load field descriptions');
+                return r.json();
+            },
+            async proposeRelation(payload) {
+                const r = await fetch(`${API_BASE}/api/proposed-relations`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                if (!r.ok) throw new Error(await r.text());
+                return r.json();
+            },
         };
 
         // ============== Rendering ==============
@@ -1895,6 +1924,446 @@
 
         // Also (re)bind the toolbar button after partials load:
         document.addEventListener('partials:loaded', wireProposeButton);
+
+        // ---------- Propose Relationship: overlay + route (#/propose-relation) ----------
+        function ensureProposeRelOverlay() {
+            let overlay = document.querySelector('#propose-rel-overlay');
+            if (!overlay) {
+                overlay = el('div', { id: 'propose-rel-overlay', className: 'page-overlay', style: 'display:none' });
+                document.querySelector('.main').appendChild(overlay);
+            }
+            return overlay;
+        }
+
+        async function showProposeRelPage() {
+            const overlay = ensureProposeRelOverlay();
+            if (!overlay.dataset.loaded) {
+                const html = await (await fetch('/partials/propose-relation.html')).text();
+                overlay.innerHTML = html;
+                overlay.dataset.loaded = 'true';
+                initProposeRelPage();
+                // ⬇️ Button exists now, wire it
+                wireProposeEnumButton();
+            }
+            overlay.style.display = 'block';
+            if (window.refreshEnumOptions) window.refreshEnumOptions();
+            document.querySelector('#propose-rel-status').textContent = 'Fill out the relation and click Save.';
+            if (location.hash !== '#/propose-relation') location.hash = '#/propose-relation';
+        }
+
+        function hideProposeRelPage() {
+            const overlay = document.querySelector('#propose-rel-overlay');
+            if (overlay) overlay.style.display = 'none';
+            if (location.hash === '#/propose-relation') history.replaceState(null, '', ' ');
+        }
+
+        window.addEventListener('hashchange', () => {
+            if (location.hash === '#/propose-relation') showProposeRelPage(); else hideProposeRelPage();
+        });
+
+        function wireProposeRelButton() {
+            const btn = document.querySelector('#btn-propose-rel');
+            if (btn && !btn.dataset.bound) {
+                btn.onclick = showProposeRelPage;
+                btn.dataset.bound = '1';
+            }
+        }
+
+        wireProposeRelButton();
+
+        document.addEventListener('partials:loaded', wireProposeRelButton);
+
+        // ---------- Propose Relationship: page logic ----------
+        function initProposeRelPage() {
+            const status = document.querySelector('#propose-rel-status');
+            const list = document.querySelector('#pr-attr-list');
+
+            const subjSel = document.querySelector('#pr-subject');
+            const objSel = document.querySelector('#pr-object');
+            const predsInp = document.querySelector('#pr-preds');
+
+            // install Choices on the subject/object multiselects
+            const allClasses = Object.keys(state.classes || {});
+            subjSel.innerHTML = '';
+            objSel.innerHTML = '';
+            allClasses.forEach(c => {
+                subjSel.appendChild(el('option', { value: c, textContent: c }));
+                objSel.appendChild(el('option', { value: c, textContent: c }));
+            });
+            const subjChoices = new Choices(subjSel, { removeItemButton: true, shouldSort: true, itemSelectText: '' });
+            const objChoices = new Choices(objSel, { removeItemButton: true, shouldSort: true, itemSelectText: '' });
+
+            // load enums and field descriptions once
+            let enumsCache = {};
+            let generalQualifiers = {};
+
+            const qualDatalist = document.querySelector('#pr-qual-suggestions');
+
+            (async () => {
+                try {
+                    enumsCache = await API.getEnums();
+                    const fd = await API.getFieldDescriptions();
+                    generalQualifiers = (fd && fd.general_qualifiers) ? fd.general_qualifiers : {};
+                    // populate suggestions
+                    qualDatalist.innerHTML = '';
+                    Object.keys(generalQualifiers).forEach(k => {
+                        qualDatalist.appendChild(el('option', { value: k }));
+                    });
+                } catch (e) {
+                    console.warn('Could not load enums/field descriptions:', e);
+                }
+            })();
+
+            window.refreshEnumOptions = async () => {
+                try {
+                    enumsCache = await API.getEnums();
+                    $$('#pr-attr-list select[data-role="enum-select"]').forEach(sel => {
+                        const current = sel.value;
+                        sel.innerHTML = '';
+                        sel.appendChild(el('option', { value: '', textContent: '(choose enum)' }));
+                        Object.keys(enumsCache).forEach(n =>
+                            sel.appendChild(el('option', { value: n, textContent: n }))
+                        );
+                        if (current && enumsCache[current]) sel.value = current;
+                    });
+                } catch (e) {
+                    console.warn('refreshEnumOptions failed', e);
+                }
+            };
+
+            const choicesMultiselect = (sel) => new Choices(sel, { removeItemButton: true, shouldSort: true, itemSelectText: '' });
+
+            const addFieldRow = (prefill = {}) => {
+                const row = el('div', { className: 'attr-row pr-grid' });
+
+                // FIELD NAME
+                const name = el('input', { type: 'text', placeholder: 'subject_direction', value: prefill.name || '' });
+                name.setAttribute('list', 'pr-qual-suggestions');
+                name.pattern = '^[a-z_][a-z0-9_]*$';
+
+                // TYPE
+                const type = el('select', {});
+                ['fixed', 'dynamic', 'free_text'].forEach(t => type.appendChild(el('option', { value: t, textContent: t })));
+                type.value = prefill.kind || 'fixed';
+
+                // CONFIG cell
+                const cfg = el('div', { className: 'stack' });
+
+                // OPT?
+                const optWrap = el('label', { className: 'chk-wrap', title: 'Optional field' });
+                const opt = el('input', { type: 'checkbox' });
+                opt.checked = (prefill.optional !== undefined) ? !!prefill.optional : true;
+                optWrap.appendChild(opt);
+
+                // DESCRIPTION (white free text)
+                const desc = el('textarea', {
+                    rows: 2,
+                    className: 'whitebox',
+                    placeholder: 'Field description',
+                    value: prefill.description || ''
+                });
+
+                // DELETE
+                const del = el('button', { type: 'button', className: 'ghost', textContent: '✕', title: 'Remove field' });
+                del.onclick = () => row.remove();
+
+                // ---------- Per-type CONFIG builders ----------
+                const buildFixed = () => {
+                    cfg.innerHTML = '';
+                    const wrap = el('div');
+                    const enumSel = el('select', { className: 'w100', dataset: { role: 'enum-select' } });
+
+                    enumSel.appendChild(el('option', { value: '', textContent: '(choose enum)' }));
+                    Object.keys(enumsCache || {}).forEach(n =>
+                        enumSel.appendChild(el('option', { value: n, textContent: n }))
+                    );
+
+                    if (prefill.enum_name) enumSel.value = prefill.enum_name;
+
+                    wrap.appendChild(enumSel);
+                    cfg.appendChild(wrap);
+
+                    return {
+                        value: () => {
+                            const v = enumSel.value.trim();
+                            return v ? { name: v } : null;
+                        }
+                    };
+                };
+
+                const buildDynamic = () => {
+                    cfg.innerHTML = '';
+                    const sel = el('select', { multiple: true });
+                    Object.keys(state.classes || {}).forEach(c => sel.appendChild(el('option', { value: c, textContent: c })));
+                    cfg.appendChild(sel);
+                    const chooser = new Choices(sel, { removeItemButton: true, shouldSort: true, itemSelectText: '' });
+                    if (Array.isArray(prefill.classes)) prefill.classes.forEach(c => chooser.setChoiceByValue(c));
+                    return { value: () => chooser.getValue(true) };
+                };
+
+                const buildFree = () => {
+                    cfg.innerHTML = '';
+                    const kind = el('select', {});
+                    [['text', 'text'], ['number', 'number']].forEach(([v, t]) => kind.appendChild(el('option', { value: v, textContent: t })));
+                    if (prefill.text_type) kind.value = prefill.text_type;
+                    cfg.appendChild(kind);
+                    return { value: () => kind.value };
+                };
+
+                let cfgGetter = null;
+                const refreshCfg = () => {
+                    if (type.value === 'fixed') cfgGetter = buildFixed();
+                    else if (type.value === 'dynamic') cfgGetter = buildDynamic();
+                    else cfgGetter = buildFree();
+
+                    // autofill description if known qualifier
+                    const k = (name.value || '').trim();
+                    if (!desc.value && k && generalQualifiers[k]) desc.value = generalQualifiers[k];
+                };
+
+                type.addEventListener('change', refreshCfg);
+                name.addEventListener('change', () => {
+                    const k = name.value.trim();
+                    if (!desc.value && k && generalQualifiers[k]) desc.value = generalQualifiers[k];
+                });
+
+                refreshCfg();
+
+                // append in grid order
+                row.appendChild(name);
+                row.appendChild(type);
+                row.appendChild(cfg);
+                row.appendChild(optWrap);
+                row.appendChild(desc);
+                row.appendChild(del);
+
+                list.appendChild(row);
+                return { row };
+            };
+
+
+            // buttons
+            document.querySelector('#pr-add-field').onclick = () => addFieldRow();
+            document.querySelector('#pr-add-defaults').onclick = () => {
+                if (!generalQualifiers) return;
+                for (const [k, v] of Object.entries(generalQualifiers)) {
+                    addFieldRow({ name: k, kind: 'fixed', description: v });
+                }
+                status.textContent = `Added ${Object.keys(generalQualifiers).length} common qualifiers.`;
+            };
+
+            document.querySelector('#pr-reset-fields').onclick = () => {
+                const list = document.querySelector('#pr-attr-list');
+                list.innerHTML = '';
+                document.querySelector('#propose-rel-status').textContent = 'All relation fields cleared.';
+            };
+
+            document.querySelector('#btn-propose-rel-back').onclick = hideProposeRelPage;
+
+            document.querySelector('#btn-propose-rel-save').onclick = async () => {
+                try {
+                    const relName = (document.querySelector('#pr-name').value || '').trim();
+                    if (!/^[A-Z][A-Za-z0-9_]*$/.test(relName)) {
+                        status.textContent = 'Invalid relation name. Use CamelCase (e.g., ChemicalAffectsGene).';
+                        return;
+                    }
+
+                    const subject_classes = subjChoices.getValue(true);
+                    const object_classes = objChoices.getValue(true);
+                    if (!subject_classes.length || !object_classes.length) {
+                        status.textContent = 'Pick at least one subject and one object class.';
+                        return;
+                    }
+
+                    const predRaw = (predsInp.value || '').trim();
+                    const predicate_choices = predRaw ? predRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+                    // collect field rows
+                    const rows = Array.from(list.querySelectorAll('.attr-row'));
+                    const fields = [];
+                    for (const r of rows) {
+                        const [nameEl, typeEl, cfgEl, optEl, descEl] = r.children;
+                        const fname = (nameEl.value || '').trim();
+                        if (!fname) continue;
+                        if (!/^[a-z_][a-z0-9_]*$/.test(fname)) {
+                            status.textContent = `Invalid field name "${fname}" (use snake_case).`;
+                            return;
+                        }
+
+                        const kind = typeEl.value;
+                        const optional = !!optEl.querySelector('input[type="checkbox"]').checked;
+                        const description = (descEl.value || '').trim();
+
+                        let field = { name: fname, kind, optional, description };
+
+                        if (kind === 'fixed') {
+                            const sel = cfgEl.querySelector('select[data-role="enum-select"]');
+                            const chosen = (sel?.value || '').trim();
+                            if (!chosen) {
+                                status.textContent = `Field "${fname}": choose an enum.`;
+                                return;
+                            }
+                            field.enum_name = chosen; // ✅ only existing enums
+                        } else if (kind === 'dynamic') {
+                            const sel = cfgEl.querySelector('select');
+                            const classes = sel ? Array.from(sel.selectedOptions).map(o => o.value) : [];
+                            if (!classes.length) { status.textContent = `Field "${fname}" is dynamic but has no allowed classes.`; return; }
+                            field.classes = classes;
+
+                        } else if (kind === 'free_text') {
+                            const tsel = cfgEl.querySelector('select');
+                            field.text_type = tsel ? tsel.value : 'text';
+                        }
+
+                        fields.push(field);
+                    }
+
+                    const payload = {
+                        name: relName,
+                        description: (document.querySelector('#pr-desc').value || '').trim(),
+                        subject_classes, object_classes,
+                        predicate_choices,
+                        fields,
+                    };
+
+                    status.textContent = 'Saving…';
+                    const res = await API.proposeRelation(payload);
+                    status.textContent = `Saved! Appended to ${res.proposed_file}. Enums created: ${(res.enums_created || []).join(', ') || 'none'}.`;
+
+                    // clear (leave subject/object selections in case user is iterating)
+                    document.querySelector('#pr-name').value = '';
+                    document.querySelector('#pr-desc').value = '';
+                    predsInp.value = '';
+                    list.innerHTML = '';
+                } catch (e) {
+                    status.textContent = (e && e.message) ? e.message : String(e);
+                }
+            };
+        }
+        // ---------- Propose Enum: overlay + route (#/propose-enum) ----------
+        function ensureProposeEnumOverlay() {
+            let overlay = document.querySelector('#propose-enum-overlay');
+            if (!overlay) {
+                overlay = el('div', { id: 'propose-enum-overlay', className: 'page-overlay', style: 'display:none' });
+                document.querySelector('.main').appendChild(overlay);
+            }
+            return overlay;
+        }
+
+        async function showProposeEnumPage() {
+            const overlay = ensureProposeEnumOverlay();
+            if (!overlay.dataset.loaded) {
+                const html = await (await fetch('/partials/propose-enum.html')).text();
+                overlay.innerHTML = html;
+                overlay.dataset.loaded = 'true';
+                initProposeEnumPage();
+            }
+            overlay.style.display = 'block';
+            document.querySelector('#propose-enum-status').textContent = 'Create a new enum or inspect existing ones.';
+            if (location.hash !== '#/propose-enum') location.hash = '#/propose-enum';
+        }
+
+        function hideProposeEnumPage() {
+            const overlay = document.querySelector('#propose-enum-overlay');
+            if (overlay) overlay.style.display = 'none';
+            if (location.hash === '#/propose-enum') history.replaceState(null, '', ' ');
+        }
+
+        window.addEventListener('hashchange', () => {
+            if (location.hash === '#/propose-enum') showProposeEnumPage(); else hideProposeEnumPage();
+        });
+
+        function wireProposeEnumButton() {
+            const btn = document.querySelector('#btn-propose-enum');
+            if (!btn) return; // not in DOM yet
+            if (btn && !btn.dataset.bound) {
+                btn.onclick = showProposeEnumPage;
+                btn.dataset.bound = '1';
+            }
+        }
+        wireProposeEnumButton();
+        document.addEventListener('partials:loaded', wireProposeEnumButton);
+
+        // ---------- Propose Enum: page logic ----------
+        function initProposeEnumPage() {
+            const status = document.querySelector('#propose-enum-status');
+            const listWrap = document.querySelector('#pe-enum-list');
+
+            const renderEnums = async () => {
+                try {
+                    const enums = await API.getEnums();
+                    listWrap.innerHTML = '';
+                    const names = Object.keys(enums).sort((a, b) => a.localeCompare(b));
+                    if (names.length === 0) {
+                        listWrap.appendChild(el('div', { className: 'empty' }, ['No enums found.']));
+                        return;
+                    }
+                    for (const name of names) {
+                        const det = document.createElement('details');
+                        const sum = document.createElement('summary');
+                        sum.textContent = name;
+                        det.appendChild(sum);
+                        const ul = document.createElement('ul');
+                        for (const v of enums[name]) {
+                            const li = document.createElement('li');
+                            li.textContent = v;
+                            ul.appendChild(li);
+                        }
+                        det.appendChild(ul);
+                        listWrap.appendChild(det);
+                    }
+                } catch (e) {
+                    listWrap.innerHTML = '';
+                    listWrap.appendChild(el('div', { className: 'empty' }, ['Failed to load enums.']));
+                    console.warn(e);
+                }
+            };
+
+            const coerceName = (raw) => {
+                let s = (raw || '').trim();
+                s = s.replace(/[^A-Za-z0-9_]+/g, '_').toUpperCase();
+                if (!s.endsWith('_ENUM')) s = s + '_ENUM';
+                return s;
+            };
+
+            document.querySelector('#btn-propose-enum-back').onclick = () => {
+                hideProposeEnumPage();
+                // back to relation builder if it was open
+                showProposeRelPage();
+                if (window.refreshEnumOptions) window.refreshEnumOptions();
+            };
+
+            document.querySelector('#btn-propose-enum-save').onclick = async () => {
+                try {
+                    const rawName = document.querySelector('#pe-name').value;
+                    const name = coerceName(rawName);
+                    const rawVals = (document.querySelector('#pe-values').value || '').trim();
+                    const values = rawVals.split(',').map(s => s.trim()).filter(Boolean);
+                    if (!name.match(/^[A-Z_][A-Z0-9_]*$/)) {
+                        status.textContent = 'Invalid enum name.';
+                        return;
+                    }
+                    if (values.length === 0) {
+                        status.textContent = 'Please enter at least one value.';
+                        return;
+                    }
+                    status.textContent = 'Saving…';
+                    await API.createEnum({ name, values });
+                    status.textContent = `Saved enum ${name}.`;
+                    // refresh both this list and relation page selects
+                    await renderEnums();
+                    if (window.refreshEnumOptions) window.refreshEnumOptions();
+                    // keep values so user can tweak; but clear input focus
+                    document.querySelector('#pe-name').value = name;
+                } catch (e) {
+                    const msg = (e && e.message) ? e.message : String(e);
+                    status.textContent = msg;
+                }
+            };
+
+            // initial load
+            renderEnums();
+        }
 
         async function boot() {
             try {

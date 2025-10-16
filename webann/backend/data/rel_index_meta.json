@@ -1,22 +1,54 @@
 {
-  "AnatomicalStructureToFunction": {
-    "description": "A relation between an anatomical structure and a function it performs or is associated with.",
+  "ChemicalAffectsGene": {
+    "description": "Describes an effect that a chemical has on a gene or gene product (e.g. an impact of on its abundance, activity,localization, processing, expression, etc.)",
     "subject": [
-      "BrainRegion",
-      "TissueOrOrgan"
+      "SmallMolecule"
     ],
     "object": [
-      "CNSFunction"
+      "Gene",
+      "Protein",
+      "RnaTranscript"
     ]
   },
-  "AnatomicalStructureToDisease": {
-    "description": "A relation between an anatomical structure and a disease that affects it.",
+  "ChemicalToPathway": {
+    "description": "An interaction between a chemical entity and a biological process or pathway.",
     "subject": [
-      "BrainRegion",
-      "TissueOrOrgan"
+      "SmallMolecule"
     ],
     "object": [
+      "Pathway"
+    ]
+  },
+  "DiseaseOrPhenotypicFeatureToGeneticInheritance": {
+    "description": "A relationship between either a disease or a phenotypic feature and its mode of (genetic) inheritance.",
+    "subject": [
+      "Disease",
+      "PhenotypicFeature"
+    ],
+    "object": [
+      "GeneticInheritance"
+    ]
+  },
+  "DiseaseToPhenotypicFeature": {
+    "description": "A relationship between a disease and a phenotypic feature in which the phenotypic feature is associated with the disease in some way.",
+    "subject": [
       "Disease"
+    ],
+    "object": [
+      "PhenotypicFeature"
+    ]
+  },
+  "GeneToGeneCoexpression": {
+    "description": "Indicates that two genes or gene products are co-expressed, generally under the same conditions.",
+    "subject": [
+      "Gene",
+      "Protein",
+      "RnaTranscript"
+    ],
+    "object": [
+      "Gene",
+      "Protein",
+      "RnaTranscript"
     ]
   }
 }

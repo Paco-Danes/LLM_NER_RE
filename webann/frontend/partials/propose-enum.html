@@ -1,0 +1,26 @@
+<div class="toolbar">
+    <button id="btn-propose-enum-back" class="ghost">← Back to Relation</button>
+    <div class="spacer"></div>
+    <button id="btn-propose-enum-save" class="primary">Save Enum</button>
+</div>
+
+<div class="proposewrap">
+    <div class="field">
+        <label>Enum Name</label>
+        <input id="pe-name" type="text" placeholder="MY_NEW_ENUM" />
+        <small>Uppercase with underscores. “_ENUM” will be added if missing.</small>
+    </div>
+
+    <div class="field">
+        <label>Values (comma-separated)</label>
+        <input id="pe-values" type="text" placeholder="alpha,beta,gamma" />
+    </div>
+
+    <div class="field">
+        <label>Existing Enums</label>
+        <div id="pe-enum-list" class="stack"></div>
+        <small>Click an enum to expand its values.</small>
+    </div>
+</div>
+
+<div class="footer" id="propose-enum-status">Create a new enum or inspect existing ones.</div>

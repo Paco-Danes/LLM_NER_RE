@@ -705,3 +705,72 @@ input[type="checkbox"]:checked::after {
 .lit-wrap {
     transition: opacity .2s;
 }
+
+/* Propose-Relation tidy grid */
+#pr-attrs .pr-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.7fr 1.2fr auto 1.4fr auto;
+    gap: 10px;
+    align-items: center;
+}
+
+#pr-attrs .attr-head {
+    padding: 6px 4px;
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+#pr-attr-list .attr-row {
+    padding: 6px 4px;
+}
+
+
+/* keep controls within their cells */
+#pr-attrs input[type="text"],
+#pr-attrs textarea,
+#pr-attrs select {
+    width: 100%;
+    max-width: 100%;
+}
+
+#pr-attrs details {
+    width: 100%;
+}
+
+#pr-attrs details>summary {
+    cursor: pointer;
+    margin: 6px 0;
+}
+
+#pr-attrs .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.w100 {
+    width: 100%;
+}
+
+
+/* compact optional checkbox */
+#pr-attrs .chk-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+}
+
+#pr-attrs .chk-wrap input {
+    transform: scale(0.9);
+}
+
+
+/* make multi-select chips wrap neatly */
+#pr-attrs .choices {
+    min-width: 0;
+}
+
+#pr-attrs .choices__inner {
+    min-height: 36px;
+}

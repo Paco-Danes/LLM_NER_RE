@@ -40,4 +40,3 @@ RESPONSE_TARGET_ENUM = ["cohort", "cell line", "individual", "sample"]
 
 RESPONSE_ENUM = ["therapeutic_response", "negative"]
 
-

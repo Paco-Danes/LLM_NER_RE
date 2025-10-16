@@ -97,7 +97,6 @@ class Protein(NamedEntity):
     A polypeptide chain (or set of chains) that folds into a functional 3D structure, often acting as a receptor, structural molecule, transporter, etc.
     Examples: "EGFR", "SCN1A", "SLC2A1", "TP53", "ELAVL1", "RPLP0", "SNRNP70", "ACTB", "insulin", "IGHG1", "F2", "EGF", "GRB2".
     """
-    type: Literal["Receptor", "IonChannel", "Transporter", "TranscriptionFactor", "RNA-binding", "Ribosomal", "Spliceosomal", "Structural", "hormone", "Antibody", "CoagulationFactor", "GrowthFactor", "Scaffold"] | None = Field(None, description="Type of protein, None if generic or other.")
 
 class ProteinDomain(NamedEntity):
     """
@@ -134,7 +133,6 @@ class Cell(NamedEntity):
     A basic living unit of an organism, often a specialized cell type in multicellular organisms.
     Examples: "hematopoietic stem cell", "radial glial cell", "dopaminergic neuron", "astrocyte", "CD4+ T cell", "keratinocyte", "vascular endothelial cell", "fibroblast", "cardiomyocyte", "oocyte", "erythrocyte".
     """
-    type: Literal["StemCel", "ProgenitorCell", "Neuron", "GlialCell", "ImmuneCell", "EpithelialCell", "EndothelialCell", "MesenchymalCell", "MuscleCell", "GermCell", "BloodCell"] | None = Field(None, description="Type of cell, None if generic or other.")
 
 class CellLine(NamedEntity):
     """
@@ -188,12 +186,24 @@ class GeneticInheritance(NamedEntity):
     """
     type: Literal["autosomal dominant", "autosomal recessive", "X-linked dominant", "X-linked recessive", "Y-linked", "mitochondrial", "polygenic", "multifactorial"] | None = Field(None, description="Type of genetic inheritance, None if generic or other.")
 
-class SmallMolecule(NamedEntity):
+class MolecularEntity(NamedEntity):
     """
-    Molecular entity characterized by availability in small-molecule databases of SMILES, InChI, IUPAC, with any valid chemical representation even not strictly molecular (e.g sodium ion)
-    Examples: "glucose", "ATP", "Cholesterol", "Ethanol", "NADH", "dopamine", "lactic acid", "Caffeine", "Oxygen".
+    A chemical entity composed of individual or covalently bonded atoms. Also includes nucleic acid entities (gene databases of nucleotide-based sequence) and small-molecules present in databases of SMILES, InChI, IUPAC, or other unambiguous representation of its structure. Even if it is not strictly molecular (e.g., sodium ion)
+    Examples: "glucose", "ATP", "cAMP", "ethanol", "hexaclorobenzene", "chloride ion", "caffeine".
     """
 
+class MolecularMixture(NamedEntity):
+    """
+    A chemical mixture composed of two or more molecular entities with known concentration and stoichiometry (excluding drugs). 
+    Examples: "blood plasma", "cell culture media", "seawater", "urine", "saliva".
+    """
+
+class Food(NamedEntity):
+    """
+    A substance whose context implies it is consumed or eaten by a living organism as a source of nutrition.
+    Examples: "apple", "bread", "milk", "rice", "chicken", "broccoli", "salmon", "yogurt", "spinach", "almonds".
+    """
+    
 class TissueOrOrgan(NamedEntity):
     """
     A multicellular structure or collection of cells forming a functional part of an organism.
@@ -272,19 +282,6 @@ class RnaTranscript(NamedEntity): # Synonim: transcript ?? maybe not
 #     An RNA molecule that is part of a virus's genetic material, which can be single-stranded or double-stranded.
 #     Examples: "SARS-CoV-2 RNA genome", "Hepatitis C virus RNA", "Influenza A virus segment 4", "Ebola virus RNA", "Zika virus RNA".
 #     """
-
-class ProteinEnzyme(NamedEntity):
-    """
-    A protein that acts as a biological catalyst, speeding up chemical reactions in the cell without being consumed. They make up the vast majority of enzymes.
-    Examples: "EGFR", "PTEN", "CTSB", "UBA1", "USP7", "POLG", "DDX5", "TOP1", "DICER1", "G6PD", "DNMT1", "GAA", "ALDOA", "MYH9".
-    """
-    type: Literal["Kinase", "Phosphatase", "Protease", "UbiquitinSystem", "Deubiquitinase", "Polymerase", "ATPase", "Topoisomerase", "Nuclease", "Dehydrogenase", "Transferase", "Hydrolase", "Lyase", "MotorEnzyme"] | None = Field(None, description="Type of enzyme, None if generic or other.")
-
-class Ribozyme(NamedEntity):
-    """
-    An RNA molecule capable of catalyzing specific biochemical reactions, NOT a protein but RNA enzyme.
-    Examples: "hammerhead ribozyme", "hairpin ribozyme", "group I intron", "RNase P RNA", "peptidyl transferase center".
-    """
 
 class CNSFunction(NamedEntity):
     """
