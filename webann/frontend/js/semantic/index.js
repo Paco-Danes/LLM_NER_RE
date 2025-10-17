@@ -52,8 +52,27 @@ export function renderSemanticSuggestions(items) {
         chip.addEventListener('click', () => {
             const sel = $('#sel-class');
             if (!sel) return;
+
+            // 1) Update the underlying <select> value (for state + saves)
             for (const o of sel.options) { o.selected = (o.value === it.class_name); }
-            sel.dispatchEvent(new Event('change'));
+
+            // 2) If a Choices instance exists, update its visible UI as well
+            const ch = window.classChoices;
+            try {
+                if (ch) {
+                    if (typeof ch.setValueByChoice === 'function') {
+                        ch.setValueByChoice(it.class_name);
+                    } else if (typeof ch.setChoiceByValue === 'function') {
+                        ch.setChoiceByValue(it.class_name);
+                    } else if (typeof ch.setValue === 'function') {
+                        // Last-resort fallback
+                        ch.setValue([it.class_name]);
+                    }
+                }
+            } catch { /* no-op: fallback to native select already done */ }
+
+            // 3) Notify listeners to refresh attrs + description
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
         });
 
         box.appendChild(chip);

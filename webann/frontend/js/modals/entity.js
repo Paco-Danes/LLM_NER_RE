@@ -27,7 +27,7 @@ export function openEntityModal(mode = 'create', annoId = null) {
     if (delBtn) delBtn.style.display = (mode === 'edit') ? 'inline-flex' : 'none';
 
     // Destroy any previous Choices instance
-    if (classChoices) { classChoices.destroy(); classChoices = null; }
+    if (classChoices) { classChoices.destroy(); classChoices = null; window.classChoices = null; }
 
     const sel = $('#sel-class');
     if (sel) {
@@ -45,6 +45,9 @@ export function openEntityModal(mode = 'create', annoId = null) {
             allowHTML: false
         });
 
+        // Expose for other modules (e.g., semantic chips) to sync the visible UI
+        window.classChoices = classChoices;
+
         sel.addEventListener('change', () => {
             renderAttrFields();
             renderClassDescription();
@@ -54,7 +57,23 @@ export function openEntityModal(mode = 'create', annoId = null) {
     if (mode === 'edit') {
         const anno = state.annotations.find(a => a.id === annoId);
         if (labelNode) labelNode.value = anno?.label || '';
-        if (sel) sel.value = anno?.class || '';
+
+        if (sel) {
+            const target = anno?.class || '';
+            sel.value = target;
+
+            // Keep Choices UI in sync with the underlying <select>
+            try {
+                if (classChoices && target) {
+                    if (typeof classChoices.setValueByChoice === 'function') {
+                        classChoices.setValueByChoice(target);
+                    } else if (typeof classChoices.setChoiceByValue === 'function') {
+                        classChoices.setChoiceByValue(target);
+                    }
+                }
+            } catch { /* ignore */ }
+        }
+
         renderAttrFields(anno?.attrs || {});
         renderClassDescription();
     } else {
@@ -67,7 +86,8 @@ export function openEntityModal(mode = 'create', annoId = null) {
 
     if (cancelBtn) cancelBtn.onclick = closeEntityModal;
     if (confirmBtn) confirmBtn.onclick = confirmSaveAnnotation;
-    if (delBtn) delBtn.onclick = deleteAnnotation;
+    const delBtn2 = $('#btn-delete');
+    if (delBtn2) delBtn2.onclick = deleteAnnotation;
 }
 
 export function closeEntityModal() {
