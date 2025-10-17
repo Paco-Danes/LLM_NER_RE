@@ -2392,6 +2392,7 @@
                 const data = await API.getNextText(null);
                 loadTextResponse(data);
                 renderRelationships();
+                API.semanticStatus();
             } catch (e) { console.error(e); setStatus('Failed to initialize. Is the backend running?'); }
         }
 

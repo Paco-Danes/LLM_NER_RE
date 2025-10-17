@@ -9,6 +9,8 @@ import re, keyword, hashlib
 from pydantic import BaseModel, Field, create_model
 from pydantic import TypeAdapter  # for producing a JSON Schema with $defs/$refs
 
+from . import my_enums as enum_mod  # your module with enum lists
+
 # ============================================================
 # Utilities
 # ============================================================
@@ -46,6 +48,21 @@ def _union_labels(classes: Sequence[str], labels_by_class: dict[str, list[str]])
     for cls in classes:
         vals.extend(labels_by_class.get(cls, []))
     return dedup_preserve(vals)
+
+def _normalize_values(values):
+    # same normalization you use for keys in EnumRegistry
+    return tuple(dedup_preserve(list(values)))
+
+# Build a map: (normalized tuple of strings) -> variable name from utils.my_enums
+ENUM_NAME_BY_VALUES: dict[tuple[str, ...], str] = {}
+def _index_enum_module(mod=enum_mod):
+    for name, val in vars(mod).items():
+        if isinstance(val, (list, tuple)) and all(isinstance(x, str) for x in val):
+            key = _normalize_values(val)
+            # keep the first seen as the canonical name
+            ENUM_NAME_BY_VALUES.setdefault(key, name)
+
+_index_enum_module()
 
 # ============================================================
 # Relationship spec DSL (unchanged API)
@@ -295,10 +312,10 @@ def _register_all_enums_for_candidates(
         # fixed fields
         for ff in c.spec.fixed_fields:
             if isinstance(ff, FixedChoiceField):
-                enum_reg.register(ff.choices, preferred_schema_name=getattr(ff.choices, "__name__", None))
-        # dynamic fields (only realized / non-empty)
-        for rd in c.dynamic_realized:
-            enum_reg.register(rd.choices, preferred_schema_name=rd.field.schema_name)
+                enum_reg.register(ff.choices, preferred_schema_name=ENUM_NAME_BY_VALUES.get(_normalize_values(ff.choices)))
+        # dynamic fields always inline otherwise uncomment below
+        # for rd in c.dynamic_realized:
+        #     enum_reg.register(rd.choices, preferred_schema_name="context_enum")
 
 def build_relationship_models(
     ner_output: dict,

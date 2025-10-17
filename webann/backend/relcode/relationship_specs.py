@@ -1,5 +1,5 @@
 from .utils.relation_utils import RelationshipSpec, FixedChoiceField, FreeTextField, DynamicEntityField, CandidateSpec, build_relationship_models
-from .utils.my_enums import *
+from .utils.my_enums import *    # ALL ENUMS GO HERE, DO NOT DEFINE ANY ENUMS IN THIS FILE !!!!!!
 
 # your enums live here
 
