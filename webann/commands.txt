@@ -1,10 +1,10 @@
 # Run backend
 
-cd backend
+cd webann/backend
 uvicorn app.main:app --reload --port 8000
 
 ------------------------------------------------------
 # Run frontend
 
 cd webann/frontend
-python -m http.server 5173
+python -m http.server 5173 --bind 127.0.0.1
