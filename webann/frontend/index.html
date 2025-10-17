@@ -2298,18 +2298,38 @@
                         listWrap.appendChild(el('div', { className: 'empty' }, ['No enums found.']));
                         return;
                     }
+                    // helper to chunk an array into fixed-size columns
+                    function chunk(arr) {
+                        // set size = 5 if number of items is small
+                        const size = (arr.length <= 20) ? 5 : 15;
+                        const out = [];
+                        for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+                        return out;
+                    }
+
                     for (const name of names) {
                         const det = document.createElement('details');
                         const sum = document.createElement('summary');
                         sum.textContent = name;
                         det.appendChild(sum);
-                        const ul = document.createElement('ul');
-                        for (const v of enums[name]) {
-                            const li = document.createElement('li');
-                            li.textContent = v;
-                            ul.appendChild(li);
+
+                        const values = enums[name] || [];
+                        const colsWrap = document.createElement('div');
+                        colsWrap.className = 'enum-columns';
+
+                        const cols = chunk(values);
+                        for (const col of cols) {
+                            const ul = document.createElement('ul');
+                            ul.className = 'enum-col';
+                            for (const v of col) {
+                                const li = document.createElement('li');
+                                li.textContent = v;
+                                ul.appendChild(li);
+                            }
+                            colsWrap.appendChild(ul);
                         }
-                        det.appendChild(ul);
+
+                        det.appendChild(colsWrap);
                         listWrap.appendChild(det);
                     }
                 } catch (e) {

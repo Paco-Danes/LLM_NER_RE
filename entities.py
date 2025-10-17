@@ -128,7 +128,7 @@ class Drug(NamedEntity):
     Examples: "Imatinib", "Aspirin", "Trastuzumab", "Metformin", "Penicillin", "Nivolumab", "Atorvastatin".
     """
 
-class Cell(NamedEntity):
+class CellType(NamedEntity):
     """
     A basic living unit of an organism, often a specialized cell type in multicellular organisms.
     Examples: "hematopoietic stem cell", "radial glial cell", "dopaminergic neuron", "astrocyte", "CD4+ T cell", "keratinocyte", "vascular endothelial cell", "fibroblast", "cardiomyocyte", "oocyte", "erythrocyte".
@@ -198,12 +198,36 @@ class MolecularMixture(NamedEntity):
     Examples: "blood plasma", "cell culture media", "seawater", "urine", "saliva".
     """
 
+class UnknownMoleculerMixture(NamedEntity): # biolink ComplexMolecularMixture
+    """
+    A chemical mixture composed of two or more molecular entities with unknown concentration and stoichiometry.
+    Examples:
+    """
+
+class NucleosomeModification(NamedEntity):
+    """
+    A chemical modification of a histone protein within a nucleosome octomer or a substitution of a histone with a variant histone isoform.
+    Examples: Histone 4 Lysine 20 methylation (H4K20me), histone variant H2AZ substituting H2A.
+    """
+
+class PosttranslationalModification(NamedEntity):
+    """
+    A chemical modification of a polypeptide or protein that occurs after translation.
+    Examples: "methylation" or "acetylation" of histone tail amino acids, protein "ubiquitination", polypeptide "cleavage", "phosphorylation", "glycosylation", "sumoylation", "lipidation".
+    """
+
 class Food(NamedEntity):
     """
     A substance whose context implies it is consumed or eaten by a living organism as a source of nutrition.
     Examples: "apple", "bread", "milk", "rice", "chicken", "broccoli", "salmon", "yogurt", "spinach", "almonds".
     """
-    
+
+class FoodAdditive(NamedEntity):
+    """
+    A substance added to food to preserve flavor or enhance its taste, appearance, or other qualities.
+    Examples: "sodium benzoate", "monosodium glutamate (MSG)", "tartrazine", "ascorbic acid (vitamin C)", "citric acid", "sucrose", "calcium propionate", "E202".
+    """
+
 class TissueOrOrgan(NamedEntity):
     """
     A multicellular structure or collection of cells forming a functional part of an organism.
@@ -251,13 +275,11 @@ class OrganismTaxon(NamedEntity):
     A classification of a set of organisms. Can also be used to represent strains or subspecies.
     Examples: "Homo Sapiens", "Bacteria", "Arabidopsis thaliana", "Saccharomyces cerevisiae", "Caenorhabditis elegans", "Drosophila melanogaster".
     """
-
 class Metabolite(NamedEntity):
     """
     A small molecule that is an intermediate or product of metabolism, often found in specific biochemical pathways.
     Examples: "pyruvate", "lactate", "glutamate", "cholesterol", "acetyl-CoA", "succinate", "uridine".
     """
-
 class Intron(NamedEntity):
     """
     A non-coding segment of a gene that is transcribed into RNA but removed during RNA splicing, so it does not appear in the mature RNA transcript.

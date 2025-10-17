@@ -392,7 +392,7 @@ button[disabled] {
 .footer {
     padding: 10px 16px;
     border-top: 1px solid var(--border);
-    color: var(--muted);
+    color: palevioletred;
 }
 
 .cols {
@@ -773,4 +773,29 @@ input[type="checkbox"]:checked::after {
 
 #pr-attrs .choices__inner {
     min-height: 36px;
+}
+
+.enum-columns {
+    display: grid;
+    grid-auto-flow: column;
+    /* lay columns left→right */
+    grid-auto-columns: max-content;
+    /* fit to content width */
+    column-gap: 24px;
+    /* space between columns */
+    margin: 5px;
+    color: var(--muted);
+}
+
+.enum-col {
+    list-style: disc;
+    padding-left: 1.2em;
+    /* bullet indent */
+    margin: 0;
+    /* remove default ul margin */
+}
+
+.enum-col li {
+    margin: 2px 0;
+    /* tighter line height */
 }

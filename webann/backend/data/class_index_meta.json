@@ -23,7 +23,7 @@
     "description": "A medicine, chemical or biologic agent used to treat, cure, prevent, mitigate or diagnose disease.\nExamples: \"Imatinib\", \"Aspirin\", \"Trastuzumab\", \"Metformin\", \"Penicillin\", \"Nivolumab\", \"Atorvastatin\".",
     "aliases": []
   },
-  "Cell": {
+  "CellType": {
     "description": "A basic living unit of an organism, often a specialized cell type in multicellular organisms.\nExamples: \"hematopoietic stem cell\", \"radial glial cell\", \"dopaminergic neuron\", \"astrocyte\", \"CD4+ T cell\", \"keratinocyte\", \"vascular endothelial cell\", \"fibroblast\", \"cardiomyocyte\", \"oocyte\", \"erythrocyte\".",
     "aliases": []
   },
@@ -64,11 +64,27 @@
     "aliases": []
   },
   "MolecularMixture": {
-    "description": "A chemical mixture composed of two or more molecular entities with known concentration and stoichiometry.\nExamples: \"blood plasma\", \"cell culture media\", \"seawater\", \"urine\", \"saliva\".",
+    "description": "A chemical mixture composed of two or more molecular entities with known concentration and stoichiometry (excluding drugs).\nExamples: \"blood plasma\", \"cell culture media\", \"seawater\", \"urine\", \"saliva\".",
+    "aliases": []
+  },
+  "UnknownMoleculerMixture": {
+    "description": "A chemical mixture composed of two or more molecular entities with unknown concentration and stoichiometry.\nExamples:",
+    "aliases": []
+  },
+  "NucleosomeModification": {
+    "description": "A chemical modification of a histone protein within a nucleosome octomer or a substitution of a histone with a variant histone isoform.\nExamples: Histone 4 Lysine 20 methylation (H4K20me), histone variant H2AZ substituting H2A.",
+    "aliases": []
+  },
+  "PosttranslationalModification": {
+    "description": "A chemical modification of a polypeptide or protein that occurs after translation.\nExamples: \"methylation\" or \"acetylation\" of histone tail amino acids, protein \"ubiquitination\", polypeptide \"cleavage\", \"phosphorylation\", \"glycosylation\", \"sumoylation\", \"lipidation\".",
     "aliases": []
   },
   "Food": {
     "description": "A substance whose context implies it is consumed or eaten by a living organism as a source of nutrition.\nExamples: \"apple\", \"bread\", \"milk\", \"rice\", \"chicken\", \"broccoli\", \"salmon\", \"yogurt\", \"spinach\", \"almonds\".",
+    "aliases": []
+  },
+  "FoodAdditive": {
+    "description": "A substance added to food to preserve flavor or enhance its taste, appearance, or other qualities.\nExamples: \"sodium benzoate\", \"monosodium glutamate (MSG)\", \"tartrazine\", \"ascorbic acid (vitamin C)\", \"citric acid\", \"sucrose\", \"calcium propionate\", \"E202\".",
     "aliases": []
   },
   "TissueOrOrgan": {
@@ -117,14 +133,6 @@
   },
   "RnaTranscript": {
     "description": "Any RNA/Transcript molecule (excludes rybozymes and viral rna).\nExamples: \"c-Myc mRNA\", \"tRNA^Met\", \"yeast 25S rRNA\", \"miRNA-200c\", \"MALAT1 transcript\", \"U1 snRNA\", \"SNORD44\", \"circHIPK3\", \"piR-651\", \"CRISPR-Cas9 gRNA\".",
-    "aliases": []
-  },
-  "ProteinEnzyme": {
-    "description": "A protein that acts as a biological catalyst, speeding up chemical reactions in the cell without being consumed. They make up the vast majority of enzymes.\nExamples: \"EGFR\", \"PTEN\", \"CTSB\", \"UBA1\", \"USP7\", \"POLG\", \"DDX5\", \"TOP1\", \"DICER1\", \"G6PD\", \"DNMT1\", \"GAA\", \"ALDOA\", \"MYH9\".",
-    "aliases": []
-  },
-  "Ribozyme": {
-    "description": "An RNA molecule capable of catalyzing specific biochemical reactions, NOT a protein but RNA enzyme.\nExamples: \"hammerhead ribozyme\", \"hairpin ribozyme\", \"group I intron\", \"RNase P RNA\", \"peptidyl transferase center\".",
     "aliases": []
   },
   "CNSFunction": {

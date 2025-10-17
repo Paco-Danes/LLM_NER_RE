@@ -1,26 +1,7 @@
 {
     "Protein": {
         "description": "A polypeptide chain (or set of chains) that folds into a functional 3D structure, often acting as a receptor, structural molecule, transporter, etc.\nExamples: \"EGFR\", \"SCN1A\", \"SLC2A1\", \"TP53\", \"ELAVL1\", \"RPLP0\", \"SNRNP70\", \"ACTB\", \"insulin\", \"IGHG1\", \"F2\", \"EGF\", \"GRB2\".",
-        "attributes": {
-            "type": {
-                "enum": [
-                    "Receptor",
-                    "IonChannel",
-                    "Transporter",
-                    "TranscriptionFactor",
-                    "RNA-binding",
-                    "Ribosomal",
-                    "Spliceosomal",
-                    "Structural",
-                    "hormone",
-                    "Antibody",
-                    "CoagulationFactor",
-                    "GrowthFactor",
-                    "Scaffold"
-                ],
-                "nullable": true
-            }
-        }
+        "attributes": {}
     },
     "ProteinDomain": {
         "description": "A stable, independently folding structural or functional unit within a protein, often conserved across proteins.\nExamples: \"SH3 domain\", \"SH2 domain\", \"GAF domain\", \"Kringle domain\", \"WD40 repeat\", \"Zinc finger domain\".",
@@ -42,26 +23,9 @@
         "description": "A medicine, chemical or biologic agent used to treat, cure, prevent, mitigate or diagnose disease.\nExamples: \"Imatinib\", \"Aspirin\", \"Trastuzumab\", \"Metformin\", \"Penicillin\", \"Nivolumab\", \"Atorvastatin\".",
         "attributes": {}
     },
-    "Cell": {
+    "CellType": {
         "description": "A basic living unit of an organism, often a specialized cell type in multicellular organisms.\nExamples: \"hematopoietic stem cell\", \"radial glial cell\", \"dopaminergic neuron\", \"astrocyte\", \"CD4+ T cell\", \"keratinocyte\", \"vascular endothelial cell\", \"fibroblast\", \"cardiomyocyte\", \"oocyte\", \"erythrocyte\".",
-        "attributes": {
-            "type": {
-                "enum": [
-                    "StemCel",
-                    "ProgenitorCell",
-                    "Neuron",
-                    "GlialCell",
-                    "ImmuneCell",
-                    "EpithelialCell",
-                    "EndothelialCell",
-                    "MesenchymalCell",
-                    "MuscleCell",
-                    "GermCell",
-                    "BloodCell"
-                ],
-                "nullable": true
-            }
-        }
+        "attributes": {}
     },
     "CellLine": {
         "description": "A cultured population of cells maintained as a resource for experimental use, often immortalized or derived from a specific donor, tissue, or disease context.\nCell lines are distinct from natural cell types, as they are experimental materials with stable identifiers and provenance.\nExamples: \"HeLa cell\", \"HEK293 cell\", \"MCF-7 cell\", \"Jurkat cell\", \"NIH-3T3 cell\".",
@@ -114,11 +78,27 @@
         "attributes": {}
     },
     "MolecularMixture": {
-        "description": "A chemical mixture composed of two or more molecular entities with known concentration and stoichiometry.\nExamples: \"blood plasma\", \"cell culture media\", \"seawater\", \"urine\", \"saliva\".",
+        "description": "A chemical mixture composed of two or more molecular entities with known concentration and stoichiometry (excluding drugs).\nExamples: \"blood plasma\", \"cell culture media\", \"seawater\", \"urine\", \"saliva\".",
+        "attributes": {}
+    },
+    "UnknownMoleculerMixture": {
+        "description": "A chemical mixture composed of two or more molecular entities with unknown concentration and stoichiometry.\nExamples:",
+        "attributes": {}
+    },
+    "NucleosomeModification": {
+        "description": "A chemical modification of a histone protein within a nucleosome octomer or a substitution of a histone with a variant histone isoform.\nExamples: Histone 4 Lysine 20 methylation (H4K20me), histone variant H2AZ substituting H2A.",
+        "attributes": {}
+    },
+    "PosttranslationalModification": {
+        "description": "A chemical modification of a polypeptide or protein that occurs after translation.\nExamples: \"methylation\" or \"acetylation\" of histone tail amino acids, protein \"ubiquitination\", polypeptide \"cleavage\", \"phosphorylation\", \"glycosylation\", \"sumoylation\", \"lipidation\".",
         "attributes": {}
     },
     "Food": {
         "description": "A substance whose context implies it is consumed or eaten by a living organism as a source of nutrition.\nExamples: \"apple\", \"bread\", \"milk\", \"rice\", \"chicken\", \"broccoli\", \"salmon\", \"yogurt\", \"spinach\", \"almonds\".",
+        "attributes": {}
+    },
+    "FoodAdditive": {
+        "description": "A substance added to food to preserve flavor or enhance its taste, appearance, or other qualities.\nExamples: \"sodium benzoate\", \"monosodium glutamate (MSG)\", \"tartrazine\", \"ascorbic acid (vitamin C)\", \"citric acid\", \"sucrose\", \"calcium propionate\", \"E202\".",
         "attributes": {}
     },
     "TissueOrOrgan": {
@@ -184,34 +164,6 @@
                 "nullable": true
             }
         }
-    },
-    "ProteinEnzyme": {
-        "description": "A protein that acts as a biological catalyst, speeding up chemical reactions in the cell without being consumed. They make up the vast majority of enzymes.\nExamples: \"EGFR\", \"PTEN\", \"CTSB\", \"UBA1\", \"USP7\", \"POLG\", \"DDX5\", \"TOP1\", \"DICER1\", \"G6PD\", \"DNMT1\", \"GAA\", \"ALDOA\", \"MYH9\".",
-        "attributes": {
-            "type": {
-                "enum": [
-                    "Kinase",
-                    "Phosphatase",
-                    "Protease",
-                    "UbiquitinSystem",
-                    "Deubiquitinase",
-                    "Polymerase",
-                    "ATPase",
-                    "Topoisomerase",
-                    "Nuclease",
-                    "Dehydrogenase",
-                    "Transferase",
-                    "Hydrolase",
-                    "Lyase",
-                    "MotorEnzyme"
-                ],
-                "nullable": true
-            }
-        }
-    },
-    "Ribozyme": {
-        "description": "An RNA molecule capable of catalyzing specific biochemical reactions, NOT a protein but RNA enzyme.\nExamples: \"hammerhead ribozyme\", \"hairpin ribozyme\", \"group I intron\", \"RNase P RNA\", \"peptidyl transferase center\".",
-        "attributes": {}
     },
     "CNSFunction": {
         "description": "A specific function or process carried out by the central nervous system (CNS), which includes the brain and spinal cord.\nExamples: \"Vision\", \"motor control\", \"temperature regulation\", \"emotional regulation\", \"language comprehension\", \"hearing\", \"balance\", \"breathing control\".",
